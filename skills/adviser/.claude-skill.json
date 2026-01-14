@@ -1,0 +1,30 @@
+{
+  "name": "adviser",
+  "description": "Critical analysis and quality assurance advisor using Claude Agent SDK",
+  "version": "1.0.0",
+  "entry": "./index.ts",
+  "parameters": {
+    "taskType": {
+      "type": "enum",
+      "values": ["design-review", "plan-analysis", "code-verification"],
+      "required": true,
+      "description": "The type of analysis to perform"
+    },
+    "mode": {
+      "type": "enum",
+      "values": ["workflow", "human"],
+      "default": "human",
+      "description": "Output mode: 'human' (markdown files) or 'workflow' (JSON)"
+    },
+    "context": {
+      "type": "string",
+      "default": "",
+      "description": "The text or document content to analyze"
+    },
+    "timeout": {
+      "type": "number",
+      "default": 60000,
+      "description": "Execution timeout in milliseconds"
+    }
+  }
+}

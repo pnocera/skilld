@@ -2,50 +2,31 @@
 
 **Focus**: Create standalone binaries for Windows and Linux.
 
-### Task 8: Build Configuration
+### Task 8: Verification & Cleanup
 
-**Files:**
-- Modify: `package.json`
+**Step 1: Verify SDK Runtime Dependency**
+Confirm that the advisor correctly detects the presence/absence of both `bun` and `claude` (Claude Code CLI).
 
-**Step 1: Add compilation scripts**
-Update `package.json` scripts section:
+NOTE: We are intentionally **NOT** providing standalone binary compilation (e.g., `bun build --compile`). Since the Agent SDK requires the Claude Code CLI and its authenticated environment at runtime, a self-contained binary is not currently feasible. The advisor must be run as a script via Bun.
 
-```json
-{
-  "scripts": {
-    "build:win": "bun build --compile --target=bun-windows-x64 ./skills/adviser/index.ts --outfile dist/advisor.exe",
-    "build:linux": "bun build --compile --target=bun-linux-x64 ./skills/adviser/index.ts --outfile dist/advisor",
-    "build": "bun run build:win && bun run build:linux"
-  }
-}
-```
+**Step 2: Dry Run with Mock Context**
+Run: `bun run skills/adviser/index.ts design-review human "Example context"`
+Expected: Success with a generated review in `docs/reviews/`.
 
-NOTE: `bun build --compile` automatically handles local imports (including the `import with { type: 'text' }` assets) and bundles them into the single binary.
-
-**Step 2: Build Binaries**
-Run: `bun run build`
-
-**Step 3: Verify Binaries**
-Windows:
-- Run: `.\dist\advisor.exe design-review workflow "test"`
-- Expected: Output from Claude (or error if Claude not authenticated/installed on host).
-
-Linux (if applicable/WSL):
-- Run: `./dist/advisor design-review workflow "test"`
-
-### Task 9: Documentation
+### Task 9: Documentation and Registration
 
 **Files:**
 - Create: `README.md`
 
 **Step 1: Write Usage Docs**
 Create root `README.md` explaining:
-- Installation (Just download the binary).
-- Prerequisite: `claude` CLI must be in PATH and authenticated.
-- Usage examples for each persona.
+- **Antigravity Registration**: How to point Antigravity to `skills/adviser/index.ts`.
+- **Prerequisites**: Bun runtime and `ANTHROPIC_API_KEY`.
+- **Key Feature**: Robust analysis using the Claude Agent SDK and Claude Code runtime.
+- **Config & Auth**: Requires `claude login` and optional `ANTHROPIC_API_KEY`.
 
 **Step 2: Final Commit**
 ```bash
 git add package.json README.md
-git commit -m "chore: add build scripts and compilation targets"
+git commit -m "chore: add build scripts and final documentation for Agent SDK integration"
 ```

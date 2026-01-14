@@ -8,101 +8,143 @@
 - Create: `skills/adviser/executor.ts`
 
 **Step 1: Write Executor**
-Create `skills/adviser/executor.ts`:
+Create `skills/adviser/executor.ts` using the Claude Agent SDK:
 
 ```typescript
+import { query } from '@anthropic-ai/claude-agent-sdk';
+import { AnalysisSchema, type AnalysisResult } from './schemas';
+import type { PersonaType } from './types';
+
 /**
- * Execute Claude Code CLI in headless mode
+ * Execute Claude using the Agent SDK for structured analysis
  */
 export async function executeClaude(
-  prompt: string, 
-  timeoutMs: number
-): Promise<string> {
-  // Construct command with dangerously-skip-permissions for non-interactive execution
-  const cmd = [
-    'claude',
-    '--print',
-    '--dangerously-skip-permissions',
-    '-p', prompt
-  ];
-
-  try {
-    const proc = Bun.spawn(cmd, {
-      stdout: 'pipe',
-      stderr: 'pipe',
-      stdin: 'inherit', // Inherit stdin just in case
-      env: {
-        ...process.env,
-        // Ensure API key is present (map AUTH_TOKEN if needed)
-        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN || '',
-        // Pass through synthetic configuration explicitly for clarity
-        ANTHROPIC_BASE_URL: process.env.ANTHROPIC_BASE_URL || '',
-        ANTHROPIC_AUTH_TOKEN: process.env.ANTHROPIC_AUTH_TOKEN || '',
-        ANTHROPIC_DEFAULT_HAIKU_MODEL: process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL || '',
-        ANTHROPIC_DEFAULT_SONNET_MODEL: process.env.ANTHROPIC_DEFAULT_SONNET_MODEL || '',
-        ANTHROPIC_DEFAULT_OPUS_MODEL: process.env.ANTHROPIC_DEFAULT_OPUS_MODEL || ''
+  systemPrompt: string,
+  context: string,
+  taskType: PersonaType,
+  timeoutMs: number = 60000
+): Promise<AnalysisResult> {
+  const schema = (AnalysisSchema as any).toJSONSchema();
+  
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error(`Timed out after ${timeoutMs}ms`)), timeoutMs);
+  });
+  
+  const queryPromise = (async (): Promise<AnalysisResult> => {
+    // Context is required for analysis
+    const fullPrompt = `<context>\n${context}\n</context>`;
+    let lastError: Error | null = null;
+    
+    for await (const message of query({
+      prompt: fullPrompt,
+      system: systemPrompt,
+      options: {
+        outputFormat: {
+          type: 'json_schema',
+          schema
+        }
       }
-    });
-
-    // Handle timeout
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
-        proc.kill();
-        reject(new Error(`Claude execution timed out after ${timeoutMs}ms`));
-      }, timeoutMs);
-    });
-
-    const executionPromise = proc.exited.then(async (code) => {
-      if (code !== 0) {
-        const stderr = await new Response(proc.stderr).text();
-        throw new Error(`Claude exited with code ${code}: ${stderr}`);
+    })) {
+      // 1. Handle Permission Requests (Bail early in headless mode)
+      if (message.type === 'permission_request') {
+        throw new Error(
+          'Permission required but cannot be displayed in headless mode. ' +
+          'Ensure the environment is authenticated and allowed tools are configured.'
+        );
       }
-      return await new Response(proc.stdout).text();
-    });
 
-    return await Promise.race([executionPromise, timeoutPromise]);
-  } catch (err) {
-    throw new Error(`Failed to execute Claude: ${err}`);
-  }
+      // 2. Handle Errors from the SDK
+      if (message.type === 'error') {
+        lastError = new Error(`Agent error: ${message.error || 'Unknown error'}`);
+      }
+
+      // 3. Handle Results
+      if (message.type === 'result') {
+        // Special case: Failed to produce structured output
+        if (message.subtype === 'error_max_structured_output_retries') {
+          throw new Error(
+            `Could not generate valid structured output after multiple retries. ` +
+            `The input context may be too complex for the current schema.`
+          );
+        }
+
+        if (message.structured_output) {
+          const parsed = AnalysisSchema.safeParse(message.structured_output);
+          if (parsed.success) {
+            return {
+              ...parsed.data,
+              timestamp: new Date().toISOString(),
+              persona: taskType
+            };
+          }
+          throw new Error(`Schema validation failed: ${JSON.stringify(parsed.error)}`);
+        }
+      }
+    }
+    
+    throw lastError || new Error('No result received from Claude');
+  })();
+  
+  return await Promise.race([queryPromise, timeoutPromise]);
 }
 ```
 
-### Task 6: Implement Output OutputHandler
+### Task 6: Implement Output Handler
 
 **Files:**
 - Create: `skills/adviser/output.ts`
 
 **Step 1: Write Output Logic**
-Create `skills/adviser/output.ts`:
+Create `skills/adviser/output.ts` to handle both structured JSON and markdown conversion:
 
 ```typescript
-import { mkdir, write } from 'bun';
+import { write } from 'bun';
 import type { OutputMode, PersonaType } from './types';
+import type { AnalysisResult } from './schemas';
+import { join } from 'node:path';
 
 export async function handleOutput(
-  content: string,
+  result: AnalysisResult,
   mode: OutputMode,
   type: PersonaType
 ): Promise<string> {
   if (mode === 'workflow') {
-    return content;
+    return JSON.stringify(result, null, 2);
   }
 
-  // Human mode: Save to file
-  const timestamp = Date.now();
-  const filename = `review-${type}-${timestamp}.md`;
-  const dir = 'docs/reviews';
-  const path = `${dir}/${filename}`;
+  // Human mode: Convert to markdown and save
+  const filename = `review-${type}-${Date.now()}.md`;
+  const baseDir = process.env.ADVISOR_OUTPUT_DIR || 'docs/reviews';
+  const path = join(process.cwd(), baseDir, filename);
 
-  // Ensure directory exists (recursive)
-  // Bun.write handles file creation, but we need dir check if strictly Node, 
-  // but in Bun ecosystem we can use node:fs or shell.
-  // Using shell for simplicity in this script context if needed, 
-  // but strictly TS implementation:
-  const fs = await import('node:fs/promises');
-  await fs.mkdir(dir, { recursive: true });
+  // Build Markdown content
+  let markdown = `# ${type.replace(/-/g, ' ').toUpperCase()} Review\n\n`;
+  markdown += `**Date:** ${new Date(result.timestamp).toISOString()}\n\n`;
+  markdown += `## Summary\n\n${result.summary}\n\n`;
   
-  await Bun.write(path, content);
+  if (result.issues.length > 0) {
+    markdown += `## Issues (${result.issues.length})\n\n`;
+    for (const issue of result.issues) {
+      const emoji = { critical: '🔴', high: '🟠', medium: '🟡', low: '🟢' }[issue.severity];
+      markdown += `### ${emoji} ${issue.severity.toUpperCase()}\n`;
+      markdown += `${issue.description}\n`;
+      if (issue.location) markdown += `**Location:** ${issue.location}\n`;
+      if (issue.recommendation) markdown += `**Recommendation:** ${issue.recommendation}\n`;
+      markdown += '\n';
+    }
+  }
+  
+  if (result.suggestions.length > 0) {
+    markdown += '## Suggestions\n\n';
+    for (const suggestion of result.suggestions) {
+      markdown += `- ${suggestion}\n`;
+    }
+  }
+
+  const fs = await import('node:fs/promises');
+  await fs.mkdir(join(process.cwd(), baseDir), { recursive: true });
+  
+  await Bun.write(path, markdown);
   
   return `Review saved to: ${path}`;
 }
