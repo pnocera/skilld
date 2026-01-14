@@ -1,5 +1,5 @@
 import { expect, test, describe, beforeEach, afterEach } from 'bun:test';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { getOutputDir } from './output';
 import { rmSync } from 'node:fs';
 
@@ -25,7 +25,7 @@ afterEach(() => {
   // Cleanup tempdir
   try {
     rmSync(tempdir, { recursive: true, force: true });
-  } catch {}
+  } catch { }
 });
 
 describe('CLI Integration Tests', () => {
@@ -36,18 +36,19 @@ describe('CLI Integration Tests', () => {
     });
 
     test('resolves to environment variable when set', () => {
-      const customDir = '/tmp/custom-output';
+      const customDir = join(tempdir, 'custom-output');
       process.env.ADVISED_OUTPUT_DIR = customDir;
       const dir = getOutputDir();
-      expect(dir).toBe(customDir);
+      expect(dir).toBe(resolve(customDir));
       delete process.env.ADVISED_OUTPUT_DIR;
     });
 
     test('resolves absolute path from environment variable', () => {
-      const customDir = join(process.cwd(), 'custom-out');
+      const customDir = join(tempdir, 'custom-out');
       process.env.ADVISED_OUTPUT_DIR = customDir;
       const dir = getOutputDir();
-      expect(dir).toMatch(/^\/.*\/custom-out$/);
+      // Match starts with drive letter (Windows) or / (Unix)
+      expect(dir).toMatch(/^([a-zA-Z]:\\|\/).*custom-out$/);
       delete process.env.ADVISED_OUTPUT_DIR;
     });
   });

@@ -68,16 +68,27 @@ The adviser uses the Claude CLI's stored credentials—no separate `ANTHROPIC_AP
 
 ## Building
 
+A comprehensive PowerShell build script is provided at the project root to orchestrate the entire build process.
+
 ```powershell
-# Build both Windows and Linux executables
-./skills/adviser/build.ps1
+# Build both Windows and Linux executables (full process)
+./build.ps1
 
-# Build Windows only (native, no Docker)
-./skills/adviser/build.ps1 -WindowsOnly
-
-# Build Linux only (requires Docker)
-./skills/adviser/build.ps1 -LinuxOnly
+# Build with specific options
+./build.ps1 -Clean               # Remove old artifacts first
+./build.ps1 -SkipTests           # Build without running bun test
+./build.ps1 -WindowsOnly         # Skip Linux/Docker build
+./build.ps1 -Deploy "C:\Path"    # Build and deploy immediately
 ```
+
+The script performs the following steps:
+1. **Prerequisite Check**: Validates Bun and Docker (for Linux builds).
+2. **Clean**: (Optional) Removes existing `dist` directories.
+3. **Install**: Runs `bun install` to ensure dependencies are up to date.
+4. **Test**: Runs `bun test` to ensure build quality.
+5. **Compile**: Uses `bun build --compile` to create standalone executables.
+6. **Validate**: Checks artifact integrity and size.
+7. **Deploy**: (Optional) Deploys to a target Antigravity project.
 
 ## Usage
 
