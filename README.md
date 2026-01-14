@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/adviser.jpg" width="100%" alt="Skilld Adviser Banner">
+</p>
+
 # Adviser Skill for Antigravity
 
 Critical analysis and quality assurance advisor using the Claude Agent SDK.
