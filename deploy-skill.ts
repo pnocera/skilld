@@ -241,9 +241,19 @@ ${adviserCmd} design-review -m workflow -c @design.md > result.json
 
 The adviser executable is self-contained—no Bun runtime required!
 
-However, you still need:
-- **Claude Code CLI**: \`curl -fsSL https://claude.ai/install.sh | bash\`
-- **ANTHROPIC_API_KEY**: Set in your environment
+You just need Claude CLI authenticated:
+\`\`\`bash
+# Install
+curl -fsSL https://claude.ai/install.sh | bash
+
+# Authenticate
+claude login
+
+# Accept non-interactive mode (required once)
+claude --dangerously-skip-permissions
+\`\`\`
+
+No separate \`ANTHROPIC_API_KEY\` needed—uses Claude CLI's stored credentials!
 `;
 
   writeFileSync(join(examplesDir, 'usage.md'), exampleContent);
@@ -356,8 +366,8 @@ Deployed files:
   - examples/     (Usage examples)
 
 Prerequisites on target machine:
-  - Claude Code CLI (claude)
-  - ANTHROPIC_API_KEY environment variable
+  - Claude Code CLI (authenticated via 'claude login')
+  - Must have run 'claude --dangerously-skip-permissions' once
 
 For more information, see:
   https://antigravity.google/docs/skills

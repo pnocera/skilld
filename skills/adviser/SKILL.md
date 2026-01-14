@@ -140,12 +140,24 @@ adviser/
 
 On the **target machine** (where adviser runs):
 
-- **Claude Code CLI**: `curl -fsSL https://claude.ai/install.sh | bash`
-- **ANTHROPIC_API_KEY**: Must be set in environment
+- **Claude Code CLI** - Authenticated and configured:
+  ```bash
+  # Install
+  curl -fsSL https://claude.ai/install.sh | bash
+  
+  # Authenticate
+  claude login
+  
+  # Accept non-interactive mode (required once)
+  claude --dangerously-skip-permissions
+  ```
+
+> **Note:** The adviser uses Claude CLI's stored credentials—no separate `ANTHROPIC_API_KEY` needed!
 
 On the **build machine** (to compile executables):
 
 - **Bun** (v1.1+): `curl -fsSL https://bun.sh/install | bash`
+- **Docker**: For Linux cross-compilation (when building on Windows)
 
 ## Configuration
 

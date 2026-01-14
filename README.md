@@ -43,15 +43,19 @@ This copies the executables to `.agent/skills/adviser/` in your project.
 
 ### On Target Machine (where adviser runs)
 
-- **Claude Code CLI** - Required by the Agent SDK
+- **Claude Code CLI** - Authenticated and configured
   ```bash
+  # Install
   curl -fsSL https://claude.ai/install.sh | bash
+  
+  # Authenticate
+  claude login
+  
+  # Accept non-interactive mode (required once)
+  claude --dangerously-skip-permissions
   ```
 
-- **Anthropic API Key** - For Claude API access
-  ```bash
-  export ANTHROPIC_API_KEY=your_key_here
-  ```
+The adviser uses the Claude CLI's stored credentials—no separate `ANTHROPIC_API_KEY` needed!
 
 ### On Build Machine (to compile executables)
 
