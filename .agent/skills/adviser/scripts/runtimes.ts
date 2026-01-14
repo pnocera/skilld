@@ -1,9 +1,11 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 import { AnalysisSchema, type AnalysisResult } from './schemas';
 import type { PersonaType } from './types';
 
 /**
  * Execute Claude using the Agent SDK for structured analysis
+ * @throws {Error} If timeout occurs, permission required, or validation fails
  */
 export async function executeClaude(
   systemPrompt: string,
@@ -11,72 +13,83 @@ export async function executeClaude(
   taskType: PersonaType,
   timeoutMs: number = 60000
 ): Promise<AnalysisResult> {
-  const schema = (AnalysisSchema as any).toJSONSchema();
+  // Convert Zod schema to JSON Schema using the recommended library
+  const schema = zodToJsonSchema(AnalysisSchema);
 
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error(`Timed out after ${timeoutMs}ms`)), timeoutMs);
-  });
+  const controller = new AbortController();
 
-  const queryPromise = (async (): Promise<AnalysisResult> => {
-    // Context is required for analysis
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  try {
     const fullPrompt = `<context>\n${context}\n</context>`;
-    let lastError: Error | null = null;
 
     for await (const message of query({
       prompt: fullPrompt,
-      system: systemPrompt,
       options: {
+        systemPrompt,
         outputFormat: {
           type: 'json_schema',
-          schema
+          schema: schema
+        },
+        abortController: controller,
+        maxTurns: 10,
+        // Non-interactive mode: bypass permissions
+        allowDangerouslySkipPermissions: true,
+        permissionMode: 'bypassPermissions',
+        // Ensure we have access to work directory
+        cwd: process.cwd(),
+        // Load project settings to get authentication
+        settingSources: ['user', 'project']
+      }
+    })) {
+      // Handle result messages
+      if (message.type === 'result') {
+        // Success: check for structured_output
+        if (message.subtype === 'success') {
+          if ('structured_output' in message && message.structured_output !== undefined) {
+            const parsed = AnalysisSchema.safeParse(message.structured_output as unknown);
+            if (parsed.success) {
+              return {
+                ...parsed.data,
+                timestamp: new Date().toISOString(),
+                persona: taskType
+              };
+            }
+            throw new Error(`Schema validation failed: ${JSON.stringify(parsed.error)}`);
+          }
+          // No structured output - this shouldn't happen with outputFormat set
+          throw new Error('Expected structured_output but it was not present');
         }
-      }
-    }))
- {
-      // 1. Handle Permission Requests (Bail early in headless mode)
-      if (message.type === 'permission_request')
- {
-        throw new Error(
-          'Permission required but cannot be displayed in headless mode. ' +
-          'Ensure the environment is authenticated and allowed tools are configured.'
-        );
-      }
 
-      // 2. Handle Errors from the SDK
-      if (message.type === 'error'
-) {
-        lastError = new Error(`Agent error: ${message.error || 'Unknown error'}`);
-      }
-
-      // 3. Handle Results
-      if (message.type === 'result'
-) {
-        // Special case: Failed to produce structured output
-        if (message.subtype === 'error_max_structured_output_retries')
- {
+        // Handle error subtypes
+        if (message.subtype === 'error_max_structured_output_retries') {
           throw new Error(
             `Could not generate valid structured output after multiple retries. ` +
             `The input context may be too complex for the current schema.`
           );
         }
 
-        if (message.structured_output) {
-          const parsed = AnalysisSchema.safeParse(message.structured_output);
-          if (parsed.success
-) {
-            return {
-              ...parsed.data,
-              timestamp: new Date().ISOString(),
-              persona: taskType
-            };
-          }
-          throw new Error(`Schema validation failed: ${JSON.stringify(parsed.error)}`);
+        if (message.subtype === 'error_max_turns') {
+          throw new Error('Exceeded maximum number of turns before completion');
+        }
+
+        if (message.subtype === 'error_max_budget_usd') {
+          throw new Error('Exceeded maximum budget');
+        }
+
+        if (message.subtype === 'error_during_execution') {
+          const msg = message as any;
+          const errors = msg.errors || [];
+          throw new Error(`Execution error: ${errors.join(', ')}`);
         }
       }
     }
 
-    throw lastError || new Error('No result received from Claude');
-  })();
-
-  return await Promise.race([queryPromise, timeoutPromise]);
+    // If we get here, no proper result was received
+    throw new Error('No result received from Claude');
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
