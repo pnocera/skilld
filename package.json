@@ -1,0 +1,21 @@
+{
+  "name": "skilld",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.7",
+    "zod": "^4.3.5"
+  },
+  "scripts": {
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "advise": "bun run .agent/skills/adviser/scripts/advise.ts"
+  }
+}
