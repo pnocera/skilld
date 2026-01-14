@@ -2,6 +2,19 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { AnalysisSchema, type AnalysisResult } from './schemas';
 import type { PersonaType } from './types';
+import { which } from 'bun';
+import { platform } from 'node:os';
+
+/**
+ * Find the claude executable path
+ */
+function findClaudePath(): string {
+  const isWin = platform() === 'win32';
+  const found = which('claude');
+  if (found) return found;
+  // Fallback paths
+  return isWin ? 'claude.cmd' : 'claude';
+}
 
 /**
  * Execute Claude using the Agent SDK for structured analysis
@@ -25,10 +38,14 @@ export async function executeClaude(
   try {
     const fullPrompt = `<context>\n${context}\n</context>`;
 
+    // Get claude path using static imports (works in compiled binaries)
+    const claudePath = findClaudePath();
+
     for await (const message of query({
       prompt: fullPrompt,
       options: {
         systemPrompt,
+        pathToClaudeCodeExecutable: claudePath,
         outputFormat: {
           type: 'json_schema',
           schema: schema

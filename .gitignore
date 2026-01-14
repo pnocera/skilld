@@ -12,8 +12,10 @@ node_modules/
 .env.development.local
 .env.test.local
 .env.production.local
-
+section*
+.agent/
 # Build output
+skills/adviser/dist/
 dist/
 build/
 out/

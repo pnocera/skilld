@@ -178,9 +178,39 @@ project/
     │   ├── adviser.exe
     │   ├── adviser
     │   ├── SKILL.md
+    │   ├── AISP_SPEC.md
     │   └── examples/
     └── workflows/
         ├── brainstorm.md
         ├── writing-plan.md
         └── execute-plan.md
 ```
+
+## Antigravity Terminal Auto-Execution (Allowlist)
+
+By default, Antigravity prompts for approval when running unknown executables like `adviser.exe`. To enable seamless execution without prompts:
+
+### Option 1: Add to Allowlist (Recommended)
+
+1. Open **Settings** in Antigravity IDE
+2. Go to the **Agent** tab
+3. Find **Terminal Command Auto Execution** section
+4. Add the following to the **Allowlist**:
+   - `.agent/skills/adviser/adviser.exe` (Windows)
+   - `.agent/skills/adviser/adviser` (Linux/macOS)
+
+### Option 2: Use "Turbo" Mode
+
+Set **Terminal Command Auto Execution** policy to **Always Proceed / Turbo**. This auto-executes all commands except those in the denylist.
+
+> **Note:** For PowerShell, allowlist entries match any contiguous subsequence of command tokens. For Unix shells, entries must match a prefix of the command's tokens.
+
+### Option 3: Use `bun run` (Development)
+
+During development, use `bun run` instead of the compiled executable:
+```bash
+bun run skills/adviser/index.ts design-review -m aisp -c @document.md
+```
+
+This leverages Bun as a recognized runtime, which may avoid prompts on some configurations.
+

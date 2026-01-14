@@ -100,6 +100,7 @@ async function deploy(destination: string) {
   const sourceDistDir = join(sourceSkillDir, 'dist');
   const sourceWindowsExe = join(sourceDistDir, 'adviser.exe');
   const sourceLinuxExe = join(sourceDistDir, 'adviser');
+  const sourceAispSpec = join(sourceSkillDir, 'motifs', 'aisp-spec.md');
 
   log('=== Antigravity Skill Deployer ===', 'bright');
   log(`Deploying "${skillName}" skill to: ${resolvedDest}\n`, 'blue');
@@ -165,6 +166,13 @@ async function deploy(destination: string) {
   // Copy SKILL.md
   log(`Copying SKILL.md...`, 'blue');
   copySync(sourceSkillMd, join(skillDestDir, 'SKILL.md'));
+
+  // Copy AISP 5.1 specification for AI-to-AI communication
+  if (existsSync(sourceAispSpec)) {
+    log(`Copying AISP 5.1 Specification...`, 'blue');
+    copySync(sourceAispSpec, join(skillDestDir, 'AISP_SPEC.md'));
+    log(`  → AISP_SPEC.md (for AI-to-AI AISP-aware communication)`, 'green');
+  }
 
   // Copy executables
   log(`Copying executables...`, 'blue');

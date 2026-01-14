@@ -2,7 +2,7 @@
 name: writing-plans
 description: Use when design is complete and you need detailed implementation tasks for engineers with zero codebase context - creates comprehensive implementation plans with exact file paths, complete code examples, and verification steps assuming engineer has minimal domain knowledge
 ---
-
+// turbo-all
 # Writing Plans
 
 ## Overview
@@ -13,8 +13,6 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 **Announce at start:** "I'm using the writing-plans skill to create the implementation plan."
 
-**Context:** This should be run in a dedicated worktree (created by brainstorming skill).
-
 **Save plans to:** `docs/plans/YYYY-MM-DD-<feature-name>.md`
 
 ## Adviser Loop Configuration
@@ -23,8 +21,15 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 |---------|---------|-------------|
 | `MAX_ITERATIONS` | 3 | Maximum plan-analysis loops before handoff |
 | `CHECKPOINT_TYPE` | plan-analysis | Adviser task to run |
+| `OUTPUT_MODE` | aisp | Use AISP 5.1 format for AI-to-AI communication |
 | `ON_MAX_REACHED` | continue | Document concerns and proceed |
-| `SUCCESS_CRITERIA` | No critical/high issues | When plan is approved |
+| `SUCCESS_CRITERIA` | `⊢Verdict(approve)` or no `⊘`/`◊⁻` issues | When plan is approved |
+
+**AISP Awareness**: Before interpreting adviser output, load the AISP 5.1 specification from `.agent/skills/adviser/AISP_SPEC.md`. Key symbols:
+- `⊢Verdict(approve|revise|reject)` — Final verdict
+- `⊘` = critical, `◊⁻` = high, `◊` = medium, `◊⁺` = low severity
+- `⟦Γ:Rules⟧` — Logic block with decision rules
+- `⟦Ε⟧` — Evidence block with metrics (δ=density, φ=score, τ=tier)
 
 Override defaults by announcing: "This plan: MAX_ITERATIONS=5"
 
@@ -43,8 +48,6 @@ Override defaults by announcing: "This plan: MAX_ITERATIONS=5"
 
 ```markdown
 # [Feature Name] Implementation Plan
-
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** [One sentence describing what this builds]
 
@@ -107,7 +110,7 @@ Before offering execution choice, validate the complete plan:
 ```
 iteration = 0
 DO:
-  1. Run: adviser plan-analysis -m workflow -c @<plan_file>
+  1. Run: adviser plan-analysis -m aisp -c @<plan_file>
   2. IF adviser returns critical/high issues:
      - Revise plan based on feedback
      - iteration++
@@ -127,24 +130,3 @@ IF iteration >= MAX_ITERATIONS:
 - DRY, YAGNI, TDD, frequent commits
 - **Run adviser loop before handoff**
 - **Trust the loop** - adviser catches issues; iterate rather than perfect first draft
-
-## Execution Handoff
-
-After saving the plan, offer execution choice:
-
-**"Plan complete and saved to `docs/plans/<filename>.md`. Adviser loop completed (N iterations). Two execution options:**
-
-**1. Subagent-Driven (this session)** - I dispatch fresh subagent per task, review between tasks, fast iteration
-
-**2. Parallel Session (separate)** - Open new session with executing-plans, batch execution with checkpoints
-
-**Which approach?"**
-
-**If Subagent-Driven chosen:**
-- **REQUIRED SUB-SKILL:** Use superpowers:subagent-driven-development
-- Stay in this session
-- Fresh subagent per task + code review
-
-**If Parallel Session chosen:**
-- Guide them to open new session in worktree
-- **REQUIRED SUB-SKILL:** New session uses superpowers:executing-plans

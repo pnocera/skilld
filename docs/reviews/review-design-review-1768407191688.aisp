@@ -1,0 +1,68 @@
+𝔸1.0.architect@2026-01-14
+γ≔design.review
+ρ≔⟨analysis,issues,suggestions⟩
+⊢ND∧review.complete
+
+;; ─── Ω: META ───
+⟦Ω:Meta⟧{
+  ∀D: Ambig(D) < 0.02
+  ⊢ review.complete
+  timestamp≜"2026-01-14T16:13:11.685Z"
+}
+
+;; ─── Σ: TYPES ───
+⟦Σ:Types⟧{
+  Issue ≜ ⟨severity: {critical,high,medium,low}, desc: 𝕊, loc?: 𝕊, rec?: 𝕊⟩
+  Verdict ≜ {approve, revise, reject}
+  Counts ≜ ⟨critical: 4, high: 4, medium: 3, low: 2⟩
+}
+
+;; ─── Γ: RULES ───
+⟦Γ:Rules⟧{
+  issues.critical > 0 ⇒ Verdict(reject)
+  issues.high > 2 ⇒ Verdict(revise)
+  _ ⇒ Verdict(approve)
+  ⊢ Verdict(reject)
+}
+
+;; ─── Λ: ANALYSIS ───
+⟦Λ:Analysis⟧{
+  ;; Summary
+  summary≜"This specification demonstrates strong security awareness (defense-in-depth, ACID transactions, observability) but contains 4 critical gaps that must be resolved: HMAC secret storage undefined (requires secret management strategy), nonce table breaks on graceful restart (permits replay attacks), timestamp validation vulnerable to clock drift (no NTP monitoring fallback), and background cleanup undefined (could cause table bloat or deadlocks). Additional high-priority concerns include incomplete DLQ security (no encrypt-at-rest), rate limiting vulnerable to IP spoofing, undocumented backoff jitter strategy (thundering herd risk), and incomplete PostgreSQL migration plan lacking schema compatibility."
+
+  ;; Issues (13)
+  issue[0]≜⟨τ:⊘, sev:"critical", desc:"HMAC-SHA256 validation requires secret key, but storage location undefined - cannot implement authen...", loc:"Section 1: Webhook Security", rec:"Define HMAC secret storage strategy: environment variables, encrypted config fil..."⟩
+  issue[1]≜⟨τ:⊘, sev:"critical", desc:"Timestamp validation ±60s assumption fails with server clock drift or NTP failures - no monitoring o...", loc:"Section 1: Defense-in-Depth → Timestamp", rec:"Add NTP monitoring/alerting, configurable validation window with drift detection..."⟩
+  issue[2]≜⟨τ:⊘, sev:"critical", desc:"Nonces UNIQUE constraint relies on in-memory nonce tracking - graceful restart loses all nonces, per...", loc:"Section 1: Idempotency (Nonce)", rec:"Implement persistent nonces with TTL or document restart replay window trade-off..."⟩
+  issue[3]≜⟨τ:⊘, sev:"critical", desc:"Background cleanup task implementation completely undefined - could cause table bloat, deadlocks, or...", loc:"Section 2: Lifecycle (TTL)", rec:"Define cleanup implementation: DELETE with LIMIT batching, transaction isolation..."⟩
+  issue[4]≜⟨τ:◊⁻, sev:"high", desc:"DLQ stores correlationId + error_type + timestamp but lacks encrypt-at-rest or access controls - sen...", loc:"Section 3: DLQ Security", rec:"Encrypt DLQ entries with AES-256-GCM, enforce file permissions (0600), or use se..."⟩
+  issue[5]≜⟨τ:◊⁻, sev:"high", desc:"Rate limiting IP-based can be bypassed via IP spoofing (for non-HTTPS) or BGP hijacking - no authent...", loc:"Section 1: Rate Limiting", rec:"Implement authenticated identity as first-class rate limit key signed JWT tokens..."⟩
+  issue[6]≜⟨τ:◊⁻, sev:"high", desc:"Randomised exponential backoff lacks jitter strategy - could cause thundering herd on retries and am...", loc:"Section 3: Backoff", rec:"Implement 'decorrelated jitter' (Full Jitter: random_between(0, min(cap, base * ..."⟩
+  issue[7]≜⟨τ:◊⁻, sev:"high", desc:"Production migration to PostgreSQL lacks schema compatibility definition and interface boundaries...", loc:"Section 4: Production Path → Migration", rec:"Define database interface boundaries, data type mappings (SQLite TEXT vs Postgre..."⟩
+  issue[8]≜⟨τ:◊, sev:"medium", desc:"Nginx configuration snippet mentions fixed buffer sizes but provides no full configuration or TLS se...", loc:"Section 4: Production Path → Reverse Proxy", rec:"Provide complete nginx.conf with TLS 1.3, HSTS, security headers (CSP, X-Frame-O..."⟩
+  issue[9]≜⟨τ:◊, sev:"medium", desc:"Metrics format claims Prometheus-compatible but no schema defined for call_latency_seconds distribut...", loc:"Section 3: Observability", rec:"Define Prometheus Histogram vs Summary schema, quantiles (0.5, 0.9, 0.99), bucke..."⟩
+  issue[10]≜⟨τ:◊, sev:"medium", desc:"WAL mode for SQLite but no checkpointing schedule documented - could cause unbounded WAL file growth...", loc:"Section 2: Database", rec:"Define WAL checkpoint triggers (idle, timeout, pages limit), disk usage alerts, ..."⟩
+  issue[11]≜⟨τ:◊⁺, sev:"low", desc:"IP-based rate limiting doesn't account for IPv6 /64 subnet aggregation - could unfairly rate limit e...", loc:"Section 1: Rate Limiting", rec:"Document IPv6 handling strategy: hash IP with /64 prefix or use separate IPv4/IP..."⟩
+  issue[12]≜⟨τ:◊⁺, sev:"low", desc:"Request body size limit 1MB but no defined response format for oversized payloads...", loc:"Section 1: Rate Limiting", rec:"Document 413 Payload Too Large response format including JSON error body and inc..."⟩
+
+  ;; Suggestions (8)
+  suggest[0]≜"Implement a comprehensive secrets management strategy documented in Section 1 - specify whether usin..."
+  suggest[1]≜"Redesign nonce tracking for graceful restart resilience - either persist nonces to SQLite with expir..."
+  suggest[2]≜"Add timestamp validation defense-in-depth - implement configurable window (default 60s, max 300s), N..."
+  suggest[3]≜"Specify background cleanup implementation details - define DELETE batching strategy (e.g., DELETE FR..."
+  suggest[4]≜"Implement authenticated rate limiting - supplement IP-based limiting with signed JWT tokens or API k..."
+  suggest[5]≜"Apply Full Jitter to backoff strategy - replace randomised backoff with jitter: random_between(0, mi..."
+  suggest[6]≜"Define PostgreSQL migration interface - create a Database interface or TypeORM-like abstraction with..."
+  suggest[7]≜"Encrypt DLQ at-rest - wrap DLQ writes with AES-256-GCM encryption using a separate encryption key, e..."
+}
+
+;; ─── Ε: EVIDENCE ───
+⟦Ε⟧⟨
+  δ≜0.85
+  φ≜-20
+  τ≜⊘
+  ⊢ND
+  ⊢Verdict(reject)
+  ⊢issues.total=13
+  ⊢suggestions.total=8
+⟩

@@ -16,8 +16,15 @@ Start by understanding the current project context, then ask questions one at a 
 |---------|---------|-------------|
 | `MAX_ITERATIONS` | 3 | Maximum design-review loops per section |
 | `CHECKPOINT_TYPE` | design-review | Adviser task to run |
+| `OUTPUT_MODE` | aisp | Use AISP 5.1 format for AI-to-AI communication |
 | `ON_MAX_REACHED` | escalate | Report unresolved issues to human |
-| `SUCCESS_CRITERIA` | No critical/high issues | When to proceed to next section |
+| `SUCCESS_CRITERIA` | `⊢Verdict(approve)` or no `⊘`/`◊⁻` issues | When to proceed |
+
+**AISP Awareness**: Before interpreting adviser output, load the AISP 5.1 specification from `.agent/skills/adviser/AISP_SPEC.md`. Key symbols:
+- `⊢Verdict(approve|revise|reject)` — Final verdict
+- `⊘` = critical, `◊⁻` = high, `◊` = medium, `◊⁺` = low severity
+- `⟦Γ:Rules⟧` — Logic block with decision rules
+- `⟦Ε⟧` — Evidence block with metrics (δ=density, φ=score, τ=tier)
 
 Override defaults by announcing at section start: "This section: MAX_ITERATIONS=5"
 
@@ -44,7 +51,7 @@ For each design section:
 iteration = 0
 DO:
   1. Present section (200-300 words)
-  2. Run: adviser design-review -m workflow -c @<section_content>
+  2. Run: adviser design-review -m aisp -c @<section_content>
   3. IF adviser returns critical/high issues:
      - Revise section based on feedback
      - iteration++

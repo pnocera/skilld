@@ -1,0 +1,64 @@
+𝔸1.0.strategist@2026-01-14
+γ≔plan.analysis
+ρ≔⟨analysis,issues,suggestions⟩
+⊢ND∧review.complete
+
+;; ─── Ω: META ───
+⟦Ω:Meta⟧{
+  ∀D: Ambig(D) < 0.02
+  ⊢ review.complete
+  timestamp≜"2026-01-14T16:42:37.376Z"
+}
+
+;; ─── Σ: TYPES ───
+⟦Σ:Types⟧{
+  Issue ≜ ⟨severity: {critical,high,medium,low}, desc: 𝕊, loc?: 𝕊, rec?: 𝕊⟩
+  Verdict ≜ {approve, revise, reject}
+  Counts ≜ ⟨critical: 3, high: 4, medium: 4, low: 1⟩
+}
+
+;; ─── Γ: RULES ───
+⟦Γ:Rules⟧{
+  issues.critical > 0 ⇒ Verdict(reject)
+  issues.high > 2 ⇒ Verdict(revise)
+  _ ⇒ Verdict(approve)
+  ⊢ Verdict(reject)
+}
+
+;; ─── Λ: ANALYSIS ───
+⟦Λ:Analysis⟧{
+  ;; Summary
+  summary≜"The Phone-Advisor v2 plan is conceptually sound with appropriate three-phase structure (Environment/Bridge, CLI/Vapi, Workflow Integration). However, critical gaps exist in missing environment setup validation, concurrent webhook/polling race conditions, insufficient transaction safety guidance, ambiguous CLI/deployer modifications, and nonce table cleanup. Core architecture (Bridge + CLI + Vapi) is well-designed but needs concrete implementation details before execution."
+
+  ;; Issues (12)
+  issue[0]≜⟨τ:⊘, sev:"critical", desc:"Missing Bun verification, .env creation from .env.example, and Vapi credential acquisition steps bef...", loc:"Phase 1, Task 1", rec:"Add pre-task 0: verify Bun >= 1.0, copy .env.example, prompt for VAPI_API_KEY an..."⟩
+  issue[1]≜⟨τ:⊘, sev:"critical", desc:"Polling loop reads .agent/runs/<cid>.json while webhook handler writes to same file - potential part...", loc:"Phase 2, Task 4 polling loop", rec:"Use atomic write pattern: write to temp file then rename(temp, final), or add fi..."⟩
+  issue[2]≜⟨τ:◊⁻, sev:"high", desc:"resolveCall() uses BEGIN IMMEDIATE but doesn't specify error handling for SQLITE_BUSY conflicts...", loc:"Task 2, db.ts resolveCall()", rec:"Implement retry loop: while(retries<3) { BEGIN; if SUCCESS break; else if SQLITE..."⟩
+  issue[3]≜⟨τ:◊⁻, sev:"high", desc:"nonces table has created_at but no cleanup mechanism for expiration - unlimited table growth...", loc:"Task 2, nonces table design", rec:"Add DELETE FROM nonces WHERE created_at < datetime('now', '-24 hours') in isVali..."⟩
+  issue[4]≜⟨τ:◊⁻, sev:"high", desc:"verifyVapiSignature() unclear whether HMAC uses raw JSON bytes or stringified JSON - spacing differe...", loc:"Task 3, webhook verification", rec:"Clarify: const body = await req.text(); HMAC over timestamp + '.' + body string ..."⟩
+  issue[5]≜⟨τ:◊⁻, sev:"high", desc:"deployer modification doesn't specify if skill name is CLI arg, env var, or auto-detection; need bac...", loc:"Task 5", rec:"CLI arg: bun deploy-skill.ts [skill-name] [dest] with default 'adviser' compatib..."⟩
+  issue[6]≜⟨τ:⊘, sev:"critical", desc:"Caller assumes Bridge is running at localhost:3001 but doesn't verify health or start Bridge before ...", loc:"Phase 2, Task 4 polling loop", rec:"Pre-poll health check: curl http://localhost:3001/health with retry logic OR req..."⟩
+  issue[7]≜⟨τ:◊, sev:"medium", desc:"8-minute polling loop provides zero feedback to user during operation...", loc:"Phase 2, Task 4 polling", rec:"Add progress ticker: for attempt 0-240, every 30 attempts console.log('Waiting f..."⟩
+  issue[8]≜⟨τ:◊, sev:"medium", desc:"Webhook handler writes .agent/runs/<cid>.json without ensuring directory exists...", loc:"Task 3 POST handler", rec:"Add mkdirSync('.agent/runs', { recursive: true }) in Bridge startup script or be..."⟩
+  issue[9]≜⟨τ:◊⁺, sev:"low", desc:"Bridge port 3001 'configurable' but config mechanism unspecified - CLI arg? env var? config.json?...", loc:"Task 3", rec:"Add config.ts: PORT = parseInt(process.env.BRIDGE_PORT || '3001'), document in ...."⟩
+  issue[10]≜⟨τ:◊, sev:"medium", desc:"Task 2 verification mentions 'Transactional insert' but SQLite is transactional by default for singl...", loc:"Task 2 createCall()", rec:"Clarify verification should test concurrent insert attempts or document that SQL..."⟩
+  issue[11]≜⟨τ:◊, sev:"medium", desc:"Command line --success <criteria> parameter referenced but no storage column defined in calls table ...", loc:"Task 4 CLI arguments", rec:"Either add successCriteria TEXT column to calls schema or remove --success param..."⟩
+
+  ;; Suggestions (5)
+  suggest[0]≜"Add pre-implementation task 0 for environment setup (Bun verification, .env creation, credential val..."
+  suggest[1]≜"Implement Bridge health endpoint (/health responding 200) and pre-polling verification in Caller to ..."
+  suggest[2]≜"Refactor Task 2 into 2.1 (schema.sql definition) and 2.2 (db.ts with concurrent write tests) to enab..."
+  suggest[3]≜"Clarify Vapi webhook payload structure by adding integration test that inspects actual Vapi response..."
+  suggest[4]≜"Update deployer script with CLI positional argument: bun deploy-skill.ts [skill-name] [dest] where s..."
+}
+
+;; ─── Ε: EVIDENCE ───
+⟦Ε⟧⟨
+  δ≜0.85
+  φ≜0
+  τ≜⊘
+  ⊢ND
+  ⊢Verdict(reject)
+  ⊢issues.total=12
+  ⊢suggestions.total=5
+⟩

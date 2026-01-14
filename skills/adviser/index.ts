@@ -95,7 +95,7 @@ async function main() {
     console.error('');
     console.error('Arguments:  taskType     Required: design-review, plan-analysis, code-verification');
     console.error('');
-    console.error('Options:  --mode, -m <mode>      Output mode: human (default) or workflow (JSON)');
+    console.error('Options:  --mode, -m <mode>      Output mode: human (default), workflow (JSON), or aisp (AISP 5.1)');
     console.error('  --context, -c <text>   Text/document content to analyze');
     console.error('  --timeout, -t <ms>     Timeout in milliseconds (default: 60000)');
     console.error('  --help, -h             Show this help message');
@@ -151,8 +151,8 @@ async function main() {
   try {
     console.log(`[Adviser] Starting ${taskType} in ${mode} mode...`);
 
-    // Load system prompt
-    const systemPrompt = getPersonaPrompt(taskType as PersonaType);
+    // Load system prompt (inject AISP spec if aisp mode)
+    const systemPrompt = getPersonaPrompt(taskType as PersonaType, mode);
 
     // Execute via Agent SDK
     const analysisResult = await executeClaude(systemPrompt, context, taskType as PersonaType, timeout);

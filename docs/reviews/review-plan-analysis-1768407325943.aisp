@@ -1,0 +1,69 @@
+𝔸1.0.strategist@2026-01-14
+γ≔plan.analysis
+ρ≔⟨analysis,issues,suggestions⟩
+⊢ND∧review.complete
+
+;; ─── Ω: META ───
+⟦Ω:Meta⟧{
+  ∀D: Ambig(D) < 0.02
+  ⊢ review.complete
+  timestamp≜"2026-01-14T16:15:25.941Z"
+}
+
+;; ─── Σ: TYPES ───
+⟦Σ:Types⟧{
+  Issue ≜ ⟨severity: {critical,high,medium,low}, desc: 𝕊, loc?: 𝕊, rec?: 𝕊⟩
+  Verdict ≜ {approve, revise, reject}
+  Counts ≜ ⟨critical: 5, high: 5, medium: 3, low: 1⟩
+}
+
+;; ─── Γ: RULES ───
+⟦Γ:Rules⟧{
+  issues.critical > 0 ⇒ Verdict(reject)
+  issues.high > 2 ⇒ Verdict(revise)
+  _ ⇒ Verdict(approve)
+  ⊢ Verdict(reject)
+}
+
+;; ─── Λ: ANALYSIS ───
+⟦Λ:Analysis⟧{
+  ;; Summary
+  summary≜"The Phone-Advisor plan correctly identifies core components (Bridge, Caller, DB) and follows the established adviser skill pattern. However, the plan contains critical omissions: missing Vapi SDK dependency, incomplete webhook HMAC validation specification, no database migration strategy, and deploy-skill.ts requires significant redesign for multi-skill support. Phase 3 lacks specific update points in existing markdown files and missing error handling for call failures."
+
+  ;; Issues (14)
+  issue[0]≜⟨τ:⊘, sev:"critical", desc:"Task 1: package.json missing @vapi-ai/server-sdk dependency required for Vapi API integration...", loc:"skills/phone-advisor/package.json", rec:"Add \"@vapi-ai/server-sdk\": \"^1.0.0\" to dependencies..."⟩
+  issue[1]≜⟨τ:⊘, sev:"critical", desc:"Task 2: db.ts transaction error handling undefined—what happens on BEGIN IMMEDIATE failures?...", loc:"skills/phone-advisor/src/db.ts", rec:"Add try-catch blocks around transactions with rollback logic..."⟩
+  issue[2]≜⟨τ:⊘, sev:"critical", desc:"Task 3: Webhook HMAC validation implementation unspecified—signature extraction algorithm, HMAC-SHA2...", loc:"skills/phone-advisor/src/bridge.ts", rec:"Specify full validation algorithm with secret key source (process.env.VAPI_WEBHO..."⟩
+  issue[3]≜⟨τ:⊘, sev:"critical", desc:"Task 4: Vapi API trigger logic incomplete—no endpoint URL, authentication, or error handling specifi...", loc:"skills/phone-advisor/src/index.ts", rec:"Define complete Vapi API call structure with phone number, context parameters..."⟩
+  issue[4]≜⟨τ:⊘, sev:"critical", desc:"Task 5: deploy-skill.ts currently hardcoded for 'adviser' only—needs complete refactor to support mu...", loc:"E:/Projects/skilld/deploy-skill.ts", rec:"Extract hardcoded skill references into configuration before Task 5 execution..."⟩
+  issue[5]≜⟨τ:◊⁻, sev:"high", desc:"Task 2: SQLite schema.sql design incomplete—missing indexes on correlation_id for query performance,...", loc:"skills/phone-advisor/db/schema.sql", rec:"Add indexes, timestamp columns, and proper constraints..."⟩
+  issue[6]≜⟨τ:◊⁻, sev:"high", desc:"Task 3: Webhook timestamp validation (+/- 120s) missing clock skew handling and timezone specificati...", loc:"skills/phone-advisor/src/bridge.ts", rec:"Specify UTC timestamp usage and validate both bounds inclusively..."⟩
+  issue[7]≜⟨τ:◊⁻, sev:"high", desc:"Task 4: CLI 'phone-advisor call' command missing --phone argument—how does the system know which use...", loc:"skills/phone-advisor/src/index.ts", rec:"Add --phone <number> required argument or read from config file..."⟩
+  issue[8]≜⟨τ:◊⁻, sev:"high", desc:"Task 4: Polling loop undefined behavior—what happens if .agent/runs/ directory doesn't exist? File p...", loc:"skills/phone-advisor/src/index.ts", rec:"Add directory existence check and graceful error handling..."⟩
+  issue[9]≜⟨τ:◊⁻, sev:"high", desc:"Task 5: Root package.json missing dev command scripts—'bun dev:bridge' not defined, requires update ...", loc:"E:/Projects/skilld/package.json", rec:"Add dev:bridge script to package.json..."⟩
+  issue[10]≜⟨τ:◊, sev:"medium", desc:"Task 3: Webhook nonce cleanup strategy undefined—when/how are old nonces removed to prevent database...", loc:"skills/phone-advisor/src/db.ts", rec:"Implement TTL-based cleanup or add background job..."⟩
+  issue[11]≜⟨τ:◊, sev:"medium", desc:"Task 4: Timeout handling ambiguous—8 minute timeout hardcoded, no consideration for network latency ...", loc:"skills/phone-advisor/src/index.ts", rec:"Make timeout configurable and add buffer for Vapi delays..."⟩
+  issue[12]≜⟨τ:◊, sev:"medium", desc:"Task 6: brainstorm.md integration points unclear—which specific section or trigger condition should ...", loc:"workflows/brainstorm.md", rec:"Specify exact line number or section where option should be inserted..."⟩
+  issue[13]≜⟨τ:◊⁺, sev:"low", desc:"Verification step mentions 'bun test' but no test specification in Tasks 1-5—unit tests for HMAC val...", loc:"skills/phone-advisor/", rec:"Add task for creating test files matching adviser pattern..."⟩
+
+  ;; Suggestions (8)
+  suggest[0]≜"Add Vapi SDK to Task 1: Include \"@vapi-ai/server-sdk\": \"^1.0.0\" in phone-advisor/package.json de..."
+  suggest[1]≜"Refactor deploy-skill.ts before Task 5: Create new task 'Update deploy-skill.ts for multi-skill supp..."
+  suggest[2]≜"Specify HMAC validation in Task 3: Add detailed signature verification algorithm including secret ma..."
+  suggest[3]≜"Define complete SQLite schema in Task 2: Include indexes on correlation_id, created_at/updated_at ti..."
+  suggest[4]≜"Add test creation to Phase 2: Insert task 'Create unit tests' covering db.ts (transaction handling, ..."
+  suggest[5]≜"Add CLI argument to Task 4: 'phone-advisor call' must include --phone <number> or read phone number ..."
+  suggest[6]≜"Define polling strategy in Task 4: Specify interval (default 2s check), retry count (max 240 attempt..."
+  suggest[7]≜"Update brainstorm.md specifics in Task 6: Reference exact line number or section where ESCALATE trig..."
+}
+
+;; ─── Ε: EVIDENCE ───
+⟦Ε⟧⟨
+  δ≜0.85
+  φ≜-50
+  τ≜⊘
+  ⊢ND
+  ⊢Verdict(reject)
+  ⊢issues.total=14
+  ⊢suggestions.total=8
+⟩

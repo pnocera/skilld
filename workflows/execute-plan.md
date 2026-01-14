@@ -3,7 +3,8 @@ name: executing-plans
 description: Use when partner provides a complete implementation plan to execute in controlled batches with review checkpoints - loads plan, reviews critically, executes tasks in batches, reports for review between batches
 ---
 
-# Executing Plans
+// turbo-all
+## Executing Plans
 
 ## Overview
 
@@ -19,11 +20,19 @@ Load plan, review critically, execute tasks in batches, report for review betwee
 |---------|---------|-------------|
 | `MAX_ITERATIONS` | 5 | Maximum code-verification loops per batch |
 | `CHECKPOINT_TYPE` | code-verification | Adviser task to run |
+| `OUTPUT_MODE` | aisp | Use AISP 5.1 format for AI-to-AI communication |
 | `ON_MAX_REACHED` | stop | Halt and report to human |
-| `SUCCESS_CRITERIA` | No critical/high issues | When batch is approved |
+| `SUCCESS_CRITERIA` | `⊢Verdict(approve)` or no `⊘`/`◊⁻` issues | When batch is approved |
+
+**AISP Awareness**: Before interpreting adviser output, load the AISP 5.1 specification from `.agent/skills/adviser/AISP_SPEC.md`. Key symbols:
+- `⊢Verdict(approve|revise|reject)` — Final verdict
+- `⊘` = critical, `◊⁻` = high, `◊` = medium, `◊⁺` = low severity
+- `⟦Γ:Rules⟧` — Logic block with decision rules
+- `⟦Ε⟧` — Evidence block with metrics (δ=density, φ=score, τ=tier)
 
 Override defaults by announcing before batch: "This batch: MAX_ITERATIONS=10"
 
+// turbo-all
 ## The Process
 
 ### Step 1: Load and Review Plan
@@ -44,7 +53,7 @@ DO:
     3. Run verifications as specified
     4. Mark as completed
 
-  5. Run adviser: adviser code-verification -m workflow -c @<batch_files>
+  5. Run adviser: adviser code-verification -m aisp -c @<batch_files>
   6. IF adviser returns critical/high issues:
      - Fix identified issues
      - batch_iteration++

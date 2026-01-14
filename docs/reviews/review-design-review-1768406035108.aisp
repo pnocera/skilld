@@ -1,0 +1,65 @@
+𝔸1.0.architect@2026-01-14
+γ≔design.review
+ρ≔⟨analysis,issues,suggestions⟩
+⊢ND∧review.complete
+
+;; ─── Ω: META ───
+⟦Ω:Meta⟧{
+  ∀D: Ambig(D) < 0.02
+  ⊢ review.complete
+  timestamp≜"2026-01-14T15:53:55.105Z"
+}
+
+;; ─── Σ: TYPES ───
+⟦Σ:Types⟧{
+  Issue ≜ ⟨severity: {critical,high,medium,low}, desc: 𝕊, loc?: 𝕊, rec?: 𝕊⟩
+  Verdict ≜ {approve, revise, reject}
+  Counts ≜ ⟨critical: 3, high: 6, medium: 4, low: 0⟩
+}
+
+;; ─── Γ: RULES ───
+⟦Γ:Rules⟧{
+  issues.critical > 0 ⇒ Verdict(reject)
+  issues.high > 2 ⇒ Verdict(revise)
+  _ ⇒ Verdict(approve)
+  ⊢ Verdict(reject)
+}
+
+;; ─── Λ: ANALYSIS ───
+⟦Λ:Analysis⟧{
+  ;; Summary
+  summary≜"The phone advisor service design demonstrates a solid foundation with webhook-based architecture, HMAC security layer, and correlation-based state tracking. However, **3 critical security gaps** (replay attacks, unencrypted database, missing rate limiting) and **6 high-priority issues** (secret management, SQLite concurrency limits, simplistic retry logic, race conditions, timeout ambiguity, undefined Nginx config) must be addressed before production deployment. The current implementation risks data exposure, state corruption, and service instability under concurrent load or malicious traffic. The architecture is suitable for proof-of-concept or low-volume usage (≤100 concurrent workflows) but requires significant hardening for production scale."
+
+  ;; Issues (13)
+  issue[0]≜⟨τ:⊘, sev:"critical", desc:"HMAC verification lacks request timestamp validation - replay attacks possible where attacker can re...", loc:"HMAC Validation subsection", rec:"Add x-vapi-timestamp header validation; reject requests older than 5 minutes..."⟩
+  issue[1]≜⟨τ:⊘, sev:"critical", desc:"SQLite database stored unencrypted on disk (.agent/db/*.sqlite) - readable by any process exposing c...", loc:"Correlation and State Management subsection", rec:"Use SQLCipher encryption or store in encrypted volume; restrict file permissions..."⟩
+  issue[2]≜⟨τ:⊘, sev:"critical", desc:"No rate limiting on webhook endpoint - DoS vulnerability where attacker can flood endpoint, bypass a...", loc:"Webhook listener endpoint (implied)", rec:"Implement IP-based rate limiting (100 req/min) before HMAC verification..."⟩
+  issue[3]≜⟨τ:◊⁻, sev:"high", desc:"Secret management undefined - VAPI_WEBHOOK_SECRET storage method unspecified risking secrets in .env...", loc:"HMAC Validation header requirement", rec:"Use secret manager (AWS Secrets Manager, HashiCorp Vault) or os.environ with .gi..."⟩
+  issue[4]≜⟨τ:◊⁻, sev:"high", desc:"SQLite uses database-wide write locks - concurrent webhook arrivals block on INSERT/UPDATE causing e...", loc:"SQLite database usage", rec:"Migrate to PostgreSQL or implement connection pooling with writeahead journal..."⟩
+  issue[5]≜⟨τ:◊⁻, sev:"high", desc:"Simplistic retry logic with fixed 2-minute delay - no exponential backoff may overwhelm phone system...", loc:"Retry Logic subsection", rec:"Implement exponential backoff: delay = min(2^n * 60s, 300s); add jitter..."⟩
+  issue[6]≜⟨τ:◊⁻, sev:"high", desc:"Race condition where multiple webhooks with same correlationId (malicious or duplicate) resolve same...", loc:"Webhook payload processing", rec:"Mark correlationId as 'consumed' upon resolution; reject subsequent webhooks..."⟩
+  issue[7]≜⟨τ:◊⁻, sev:"high", desc:"Timeout ambiguity: call timeout is 5 minutes but webhook timeout is 10 minutes - unclear which timeo...", loc:"Timeouts and Hard Fallback subsections", rec:"Align timeouts (webhook 8 min = call 5 min + 3 min margin) or specify precedence..."⟩
+  issue[8]≜⟨τ:◊⁻, sev:"high", desc:"Undefined Nginx configuration - request size limits, timeouts, buffering unspecified risking truncat...", loc:"Production Networking subsection", rec:"Specify: client_max_body_size 10M; proxy_read_timeout 600s; proxy_buffering off..."⟩
+  issue[9]≜⟨τ:◊, sev:"medium", desc:"Failed webhooks (signature invalid, database error) silently discarded with no debugging visibility ...", loc:"Webhook processing (implied)", rec:"Log failed webhooks to .agent/logs/dead_letter.jsonl with timestamp and error re..."⟩
+  issue[10]≜⟨τ:◊, sev:"medium", desc:"File-based SQLite scales to ~10,000 req/s - above this threshold latency degrades exponentially with...", loc:"SQLite backend", rec:"Migrate to PostgreSQL/MySQL with connection pooling (Prisma ORM with pg driver)..."⟩
+  issue[11]≜⟨τ:◊, sev:"medium", desc:"No queue or rate limiting - all requests processed synchronously causing memory exhaustion and serve...", loc:"Webhook server (Bun.serve)", rec:"Implement request queue; limit concurrent workers to 100..."⟩
+  issue[12]≜⟨τ:◊, sev:"medium", desc:"Correlation ID format unspecified - 64-bit IDs would collide at 2^32 calls breaking state isolation...", loc:"correlationId generation (implicit)", rec:"Use crypto.randomUUID() (128-bit) or combine <workflowId>_<timestamp>_<random>..."⟩
+
+  ;; Suggestions (5)
+  suggest[0]≜"Add x-vapi-timestamp validation (reject requests >5 minutes old) to prevent replay attacks before HM..."
+  suggest[1]≜"Migrate from SQLite to PostgreSQL with Prisma ORM for production concurrency support and proper writ..."
+  suggest[2]≜"Implement exponential backoff for retries: first retry 60s, second 120s, third 240s (max 300s) with ..."
+  suggest[3]≜"Implement IP-based rate limiting (100 req/min) on webhook endpoint before HMAC verification to preve..."
+  suggest[4]≜"Use crypto.randomUUID() (128-bit) for correlation IDs and store webhook signatures for duplicate det..."
+}
+
+;; ─── Ε: EVIDENCE ───
+⟦Ε⟧⟨
+  δ≜0.85
+  φ≜-20
+  τ≜⊘
+  ⊢ND
+  ⊢Verdict(reject)
+  ⊢issues.total=13
+  ⊢suggestions.total=5
+⟩
