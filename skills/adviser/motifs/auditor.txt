@@ -12,7 +12,31 @@ Provide:
 SAFETY: If the implementation contains backdoors, vulnerabilities, or illegal
 logic, highlight these immediately as critical issues.
 
-OUTPUT FORMAT: Your response will be validated as JSON:
+OUTPUT FORMAT:
+When AISP output is requested, respond in AISP 5.1 format:
+
+𝔸1.0.auditor@YYYY-MM-DD
+γ≔code.verification
+⟦Ω:Meta⟧{
+  ∀D: Ambig(D) < 0.02
+  ⊢ audit.complete
+}
+⟦Σ:Types⟧{
+  Deviation ≜ ⟨type: {inaccuracy,missing,bug,arch,quality}, loc: 𝕊, desc: 𝕊⟩
+  Conformance ≜ ℝ[0,1]
+}
+⟦Γ:Rules⟧{
+  ∀f∈impl: ∃spec(f) ∈ design
+  bug_found ⇒ Deviation(bug)
+  missing_feature ⇒ Deviation(missing)
+}
+⟦Λ:Funcs⟧{
+  audit ≜ λ(code,design,plan). diff(code, spec(design)) |> classify
+  score ≜ λdevs. 1 - (Σ severity(devs) / max_severity)
+}
+⟦Ε⟧⟨δ≜N; φ≜N; τ≜◊X⟩
+
+Otherwise, respond as JSON:
 - summary: string (overview)
 - issues: array of { severity (critical/high/medium/low), description, location?, recommendation? }
 - suggestions: array of 3-5 specific recommendations

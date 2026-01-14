@@ -9,14 +9,39 @@ Three analysis personas for different types of code work:
 - **Plan Analysis** (strategist): Reviews implementation plans for correctness and sequencing
 - **Code Verification** (auditor): Cross-references code against design/plan for accuracy
 
+## Self-Contained Executables
+
+The adviser is distributed as **self-contained executables**—no Bun runtime required on the target machine!
+
+| Platform | Executable | Size |
+|----------|------------|------|
+| Windows x64 | `adviser.exe` | ~115 MB |
+| Linux x64 | `adviser` | ~96 MB |
+
+## Quick Start
+
+### Option 1: Deploy to a Project
+
+```bash
+# Deploy adviser skill and workflows to your project
+bun deploy-skill.ts /path/to/your/project
+```
+
+This copies the executables to `.agent/skills/adviser/` in your project.
+
+### Option 2: Use Directly
+
+```bash
+# Windows
+.\skills\adviser\dist\adviser.exe design-review -c @design-doc.md
+
+# Linux
+./skills/adviser/dist/adviser design-review -c @design-doc.md
+```
+
 ## Prerequisites
 
-### Required
-
-- **Bun** (v1.3.4+) - Runtime and package manager
-  ```bash
-  curl -fsSL https://bun.sh/install | bash
-  ```
+### On Target Machine (where adviser runs)
 
 - **Claude Code CLI** - Required by the Agent SDK
   ```bash
@@ -28,38 +53,50 @@ Three analysis personas for different types of code work:
   export ANTHROPIC_API_KEY=your_key_here
   ```
 
-### Installation Steps
+### On Build Machine (to compile executables)
 
-1. Install dependencies:
-   ```bash
-   bun install
-   ```
+- **Bun** (v1.1+) - For compilation
+  ```bash
+  curl -fsSL https://bun.sh/install | bash
+  ```
 
-2. Login to Claude (creates authenticated runtime):
-   ```bash
-   claude login
-   ```
+- **Docker** - For Linux cross-compilation (when building on Windows)
 
-## Antigravity Registration
+## Building
 
-Point Antigravity to `skills/adviser/index.ts`.
+```powershell
+# Build both Windows and Linux executables
+./skills/adviser/build.ps1
+
+# Build Windows only (native, no Docker)
+./skills/adviser/build.ps1 -WindowsOnly
+
+# Build Linux only (requires Docker)
+./skills/adviser/build.ps1 -LinuxOnly
+```
 
 ## Usage
 
-Run directly with Bun:
 ```bash
-bun run skills/adviser/index.ts <taskType> [mode] [context] [timeout]
+adviser <taskType> [options]
 ```
 
 **Parameters:**
 - `taskType`: One of `design-review`, `plan-analysis`, `code-verification`
-- `mode`: `human` (default, saves markdown files) or `workflow` (outputs JSON)
-- `context`: The text/document content to analyze
-- `timeout`: Execution timeout in milliseconds (default: 60000)
+- `--mode, -m`: `human` (default, saves markdown files) or `workflow` (outputs JSON)
+- `--context, -c`: The text/document content to analyze
+- `--timeout, -t`: Execution timeout in milliseconds (default: 60000)
 
-**Example:**
+**Context Input:**
 ```bash
-bun run skills/adviser/index.ts design-review human "Design doc for real-time chat app"
+# Direct text
+adviser design-review -c "Design doc for real-time chat app"
+
+# From file
+adviser design-review -c @design-doc.md
+
+# From stdin
+cat design.md | adviser design-review -c @-
 ```
 
 **Output:**
@@ -73,13 +110,18 @@ Optional environment variable:
 
 ## Development
 
-Run tests:
 ```bash
-# All tests
+# Install dependencies
+bun install
+
+# Run tests
 bun test
 
 # Watch mode
 bun test --watch
+
+# Run directly (development)
+bun run skills/adviser/index.ts design-review -c "test"
 ```
 
 ## Project Structure
@@ -87,16 +129,54 @@ bun test --watch
 ```
 skilld/
 ├── skills/adviser/
-│  ── .claude-skill.json  # Antigravity skill descriptor
-│  ── index.ts            # Main entry point
-│  ── types.ts            # Shared type definitions
-│  ── schemas.ts          # Zod validation schemas
-│  ── prompts/            # Persona prompt templates
-│   │   -- architect.txt
-│   │   -- strategist.txt
-│   │   -- auditor.txt
-│   └── *.test.ts         # Unit and integration tests
+│   ├── SKILL.md              # Skill documentation
+│   ├── build.ps1             # Build script for executables
+│   ├── dist/                 # Compiled executables
+│   │   ├── adviser.exe       # Windows x64
+│   │   └── adviser           # Linux x64
+│   ├── index.ts              # Main entry point
+│   ├── runtimes.ts           # Claude SDK execution
+│   ├── output.ts             # Output formatting
+│   ├── schemas.ts            # Zod validation schemas
+│   ├── types.ts              # Type definitions
+│   └── motifs/               # Persona prompt templates
+│       ├── architect.txt
+│       ├── strategist.txt
+│       ├── auditor.txt
+│       └── aisp-spec.md
+├── workflows/                # Antigravity workflows
+│   ├── brainstorm.md
+│   ├── writing-plan.md
+│   └── execute-plan.md
+├── Dockerfile.adviser        # Docker build for Linux executable
+├── deploy-skill.ts           # Deployment script
 ├── package.json
-├── tsconfig.json
-└── .env.example
+└── tsconfig.json
+```
+
+## Deployment
+
+The `deploy-skill.ts` script copies:
+- Self-contained executables (no Bun needed!)
+- SKILL.md documentation
+- Example usage files
+- Workflow definitions
+
+```bash
+bun deploy-skill.ts /path/to/project
+```
+
+Deploys to:
+```
+project/
+└── .agent/
+    ├── skills/adviser/
+    │   ├── adviser.exe
+    │   ├── adviser
+    │   ├── SKILL.md
+    │   └── examples/
+    └── workflows/
+        ├── brainstorm.md
+        ├── writing-plan.md
+        └── execute-plan.md
 ```

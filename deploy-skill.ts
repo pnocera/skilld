@@ -2,6 +2,8 @@
 /**
  * Deploy the adviser skill to an Antigravity-compatible project.
  *
+ * Deploys self-contained executables - no Bun runtime required on target.
+ *
  * Usage:
  *   bun deploy-skill.ts [destination]
  *
@@ -12,7 +14,7 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { join, resolve, dirname } from 'node:path';
 
 // ANSI color codes for output
 const colors = {
@@ -55,41 +57,35 @@ function copySync(src: string, dest: string) {
       copySync(join(src, entry), join(dest, entry));
     }
   } else {
-    mkdirSync(dest.split('/').slice(0, -1).join('/'), { recursive: true });
+    mkdirSync(dirname(dest), { recursive: true });
     writeFileSync(dest, readFileSync(src));
   }
 }
 
-// Get all TypeScript files from a directory (excluding tests)
-function getTsFiles(dir: string): string[] {
-  const files: string[] = [];
-  const stat = statSync(dir);
+// Copy workflow markdown files
+function copyWorkflows(sourceWorkflowsDir: string, destWorkflowsDir: string): string[] {
+  const copiedFiles: string[] = [];
 
-  if (stat.isDirectory()) {
-    for (const entry of readdirSync(dir)) {
-      const fullPath = join(dir, entry);
-      if (statSync(fullPath).isDirectory()) {
-        files.push(...getTsFiles(fullPath));
-      } else if (entry.endsWith('.ts') && !entry.endsWith('.test.ts')) {
-        files.push(fullPath);
-      }
+  if (!existsSync(sourceWorkflowsDir) || !statSync(sourceWorkflowsDir).isDirectory()) {
+    return copiedFiles;
+  }
+
+  mkdirSync(destWorkflowsDir, { recursive: true });
+
+  for (const entry of readdirSync(sourceWorkflowsDir)) {
+    const fullPath = join(sourceWorkflowsDir, entry);
+    if (entry.endsWith('.md') && statSync(fullPath).isFile()) {
+      copySync(fullPath, join(destWorkflowsDir, entry));
+      copiedFiles.push(entry);
     }
   }
-  return files;
+
+  return copiedFiles;
 }
 
-// Copy motif text files
-function copyMotifFiles(sourceDir: string, destDir: string) {
-  const motifsDir = join(sourceDir, 'motifs');
-  if (existsSync(motifsDir) && statSync(motifsDir).isDirectory()) {
-    mkdirSync(join(destDir, 'motifs'), { recursive: true });
-    for (const entry of readdirSync(motifsDir)) {
-      const fullPath = join(motifsDir, entry);
-      if (entry.endsWith('.txt')) {
-        copySync(fullPath, join(destDir, 'motifs', entry));
-      }
-    }
-  }
+// Detect target platform
+function detectPlatform(): 'windows' | 'linux' {
+  return process.platform === 'win32' ? 'windows' : 'linux';
 }
 
 // Main deployment function
@@ -101,7 +97,9 @@ async function deploy(destination: string) {
   // Source paths
   const sourceSkillDir = join(process.cwd(), 'skills', skillName);
   const sourceSkillMd = join(sourceSkillDir, 'SKILL.md');
-  const sourceIndex = join(sourceSkillDir, 'index.ts');
+  const sourceDistDir = join(sourceSkillDir, 'dist');
+  const sourceWindowsExe = join(sourceDistDir, 'adviser.exe');
+  const sourceLinuxExe = join(sourceDistDir, 'adviser');
 
   log('=== Antigravity Skill Deployer ===', 'bright');
   log(`Deploying "${skillName}" skill to: ${resolvedDest}\n`, 'blue');
@@ -117,10 +115,26 @@ async function deploy(destination: string) {
     process.exit(1);
   }
 
-  if (!existsSync(sourceIndex)) {
-    error(`index.ts not found: ${sourceIndex}`);
+  // Check for compiled executables
+  const hasWindowsExe = existsSync(sourceWindowsExe);
+  const hasLinuxExe = existsSync(sourceLinuxExe);
+
+  if (!hasWindowsExe && !hasLinuxExe) {
+    error('No compiled executables found in dist/');
+    error('Run the build script first: ./skills/adviser/build.ps1');
     process.exit(1);
   }
+
+  log('Available executables:', 'blue');
+  if (hasWindowsExe) {
+    const size = (statSync(sourceWindowsExe).size / 1024 / 1024).toFixed(2);
+    log(`  ✓ adviser.exe (${size} MB)`, 'green');
+  }
+  if (hasLinuxExe) {
+    const size = (statSync(sourceLinuxExe).size / 1024 / 1024).toFixed(2);
+    log(`  ✓ adviser (${size} MB)`, 'green');
+  }
+  log('', 'reset');
 
   // Check if destination exists and is a directory
   if (!existsSync(resolvedDest)) {
@@ -152,29 +166,23 @@ async function deploy(destination: string) {
   log(`Copying SKILL.md...`, 'blue');
   copySync(sourceSkillMd, join(skillDestDir, 'SKILL.md'));
 
-  // Create scripts directory
-  const scriptsDir = join(skillDestDir, 'scripts');
-  mkdirSync(scriptsDir, { recursive: true });
-
-  // Copy all .ts files to scripts directory (excluding tests)
-  log(`Copying script files...`, 'blue');
-  const tsFiles = getTsFiles(sourceSkillDir);
-  for (const file of tsFiles) {
-    const relativePath = relative(sourceSkillDir, file);
-    const destPath = join(scriptsDir, relativePath);
-    copySync(file, destPath);
+  // Copy executables
+  log(`Copying executables...`, 'blue');
+  if (hasWindowsExe) {
+    copySync(sourceWindowsExe, join(skillDestDir, 'adviser.exe'));
+    log(`  → adviser.exe`, 'green');
+  }
+  if (hasLinuxExe) {
+    copySync(sourceLinuxExe, join(skillDestDir, 'adviser'));
+    log(`  → adviser`, 'green');
   }
 
-  // Copy motif text files
-  log(`Copying motif files...`, 'blue');
-  copyMotifFiles(sourceSkillDir, scriptsDir);
-
-  // index.ts is the main entry point with full CLI functionality
-  // No need to generate a separate advise.ts - index.ts handles everything
-
-  // Create examples directory with a simple example
+  // Create examples directory with updated examples
   const examplesDir = join(skillDestDir, 'examples');
   mkdirSync(examplesDir, { recursive: true });
+
+  const platform = detectPlatform();
+  const adviserCmd = platform === 'windows' ? 'adviser.exe' : './adviser';
 
   const exampleContent = `# Adviser Skill Usage Examples
 
@@ -182,19 +190,19 @@ async function deploy(destination: string) {
 
 \`\`\`bash
 # Design review with direct text
-bun run .agent/skills/adviser/scripts/index.ts design-review -c "Your design document text..."
+${adviserCmd} design-review -c "Your design document text..."
 
 # Plan analysis with file input
-bun run .agent/skills/adviser/scripts/index.ts plan-analysis -c @implementation-plan.md
+${adviserCmd} plan-analysis -c @implementation-plan.md
 
 # Code verification with workflow output
-bun run .agent/skills/adviser/scripts/index.ts code-verification -m workflow -c @src/auth.ts
+${adviserCmd} code-verification -m workflow -c @src/auth.ts
 \`\`\`
 
 ## Full CLI Options
 
 \`\`\`bash
-bun run .agent/skills/adviser/scripts/index.ts <taskType> [options]
+${adviserCmd} <taskType> [options]
 
 Arguments:
   taskType     Required: design-review, plan-analysis, code-verification
@@ -210,50 +218,79 @@ Options:
 
 \`\`\`bash
 # Direct text
-bun run .agent/skills/adviser/scripts/index.ts design-review -c "API design document..."
+${adviserCmd} design-review -c "API design document..."
 
 # From file
-bun run .agent/skills/adviser/scripts/index.ts design-review -c @design-doc.txt
+${adviserCmd} design-review -c @design-doc.txt
 
 # From stdin
-cat design.md | bun run .agent/skills/adviser/scripts/index.ts design-review -c @-
+cat design.md | ${adviserCmd} design-review -c @-
 \`\`\`
 
 ## Output Modes
 
 \`\`\`bash
 # Human mode (default) - saves markdown to docs/reviews/
-bun run .agent/skills/adviser/scripts/index.ts design-review -c @design.md
+${adviserCmd} design-review -c @design.md
 
 # Workflow mode - JSON to stdout for pipeline integration
-bun run .agent/skills/adviser/scripts/index.ts design-review -m workflow -c @design.md > result.json
+${adviserCmd} design-review -m workflow -c @design.md > result.json
 \`\`\`
+
+## Prerequisites
+
+The adviser executable is self-contained—no Bun runtime required!
+
+However, you still need:
+- **Claude Code CLI**: \`curl -fsSL https://claude.ai/install.sh | bash\`
+- **ANTHROPIC_API_KEY**: Set in your environment
 `;
 
   writeFileSync(join(examplesDir, 'usage.md'), exampleContent);
 
+  // Copy workflows
+  const sourceWorkflowsDir = join(process.cwd(), 'workflows');
+  const destWorkflowsDir = join(resolvedDest, '.agent', 'workflows');
+  log(`Copying workflow files...`, 'blue');
+  const copiedWorkflows = copyWorkflows(sourceWorkflowsDir, destWorkflowsDir);
+
   // Summary
   log('\n=== Deployment Complete ===', 'bright');
   log(`Skill deployed to: ${skillDestDir}`, 'green');
+  if (copiedWorkflows.length > 0) {
+    log(`Workflows deployed to: ${destWorkflowsDir}`, 'green');
+  }
   log('\nDirectory structure:', 'blue');
   log(`  .agent/skills/${skillName}/`, 'blue');
   log(`  ├── SKILL.md`, 'blue');
-  log(`  ├── scripts/`, 'blue');
-  log(`  │   ├── index.ts      (main CLI entry point)`, 'blue');
-  log(`  │   ├── runtimes.ts   (Claude SDK execution)`, 'blue');
-  log(`  │   ├── output.ts     (output handling)`, 'blue');
-  log(`  │   ├── schemas.ts    (Zod validation)`, 'blue');
-  log(`  │   ├── types.ts      (type definitions)`, 'blue');
-  log(`  │   ├── motifs.ts     (persona prompts)`, 'blue');
-  log(`  │   └── motifs/       (prompt text files)`, 'blue');
+  if (hasWindowsExe) {
+    log(`  ├── adviser.exe     (Windows executable)`, 'blue');
+  }
+  if (hasLinuxExe) {
+    log(`  ├── adviser         (Linux executable)`, 'blue');
+  }
   log(`  └── examples/`, 'blue');
   log(`      └── usage.md`, 'blue');
+  if (copiedWorkflows.length > 0) {
+    log(`  .agent/workflows/`, 'blue');
+    for (const wf of copiedWorkflows) {
+      log(`  ├── ${wf}`, 'blue');
+    }
+  }
 
+  log('\n✨ No Bun runtime required on target machine!', 'bright');
   log('\nTo use the skill in your project:', 'bright');
-  log(`  bun run ${join('.agent/skills', skillName, 'scripts', 'index.ts')} <taskType> -c <context>`, 'green');
+
+  if (hasWindowsExe) {
+    log(`  Windows: .agent\\skills\\${skillName}\\adviser.exe <taskType> -c <context>`, 'green');
+  }
+  if (hasLinuxExe) {
+    log(`  Linux:   .agent/skills/${skillName}/adviser <taskType> -c <context>`, 'green');
+  }
+
   log('\nExamples:', 'blue');
-  log(`  bun run ${join('.agent/skills', skillName, 'scripts', 'index.ts')} design-review -c @design-doc.md`, 'blue');
-  log(`  bun run ${join('.agent/skills', skillName, 'scripts', 'index.ts')} plan-analysis -m workflow -c "Plan text..."`, 'blue');
+  log(`  adviser design-review -c @design-doc.md`, 'blue');
+  log(`  adviser plan-analysis -m workflow -c "Plan text..."`, 'blue');
   log('\nSee examples/usage.md for more usage information.\n', 'blue');
 }
 
@@ -296,6 +333,8 @@ Usage: bun deploy-skill.ts [destination]
 
 Deploy the adviser skill to an Antigravity-compatible project.
 
+This deploys self-contained executables - no Bun runtime required on target!
+
 Arguments:
   destination    Path to the project directory (default: prompt for input)
 
@@ -309,6 +348,16 @@ Examples:
 
 The skill will be deployed to:
   <destination>/.agent/skills/adviser/
+
+Deployed files:
+  - adviser.exe   (Windows x64 executable)
+  - adviser       (Linux x64 executable)
+  - SKILL.md      (Documentation)
+  - examples/     (Usage examples)
+
+Prerequisites on target machine:
+  - Claude Code CLI (claude)
+  - ANTHROPIC_API_KEY environment variable
 
 For more information, see:
   https://antigravity.google/docs/skills

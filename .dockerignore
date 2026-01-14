@@ -1,0 +1,25 @@
+# Ignore node_modules - will be re-installed in container
+node_modules/
+
+# Ignore build artifacts
+skills/adviser/dist/
+*.exe
+
+# Ignore git
+.git/
+.gitignore
+
+# Ignore docs and tests (not needed for build)
+docs/
+*.test.ts
+*.spec.ts
+
+# Ignore IDE/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore other skills (only building adviser)
+skills/*/
+!skills/adviser/

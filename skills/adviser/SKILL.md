@@ -1,10 +1,10 @@
 ---
 name: adviser
 description: Critical analysis and quality assurance for design documents, implementation plans, and code verification using Claude Agent SDK. Use when reviewing designs, plans, checking code quality, or performing structured analysis with issue tracking.
-compatibility: Requires Bun runtime (v1.3.4+), Claude Code CLI (claude), and ANTHROPIC_API_KEY environment variable
+compatibility: Self-contained executable (Windows/Linux). Requires Claude Code CLI (claude) and ANTHROPIC_API_KEY environment variable on target.
 metadata:
   author: skilld
-  version: "1.0"
+  version: "2.0"
 ---
 
 # Adviser Skill
@@ -17,12 +17,46 @@ Provides critical analysis with three specialized personas for different types o
 - **Plan Analysis** (`plan-analysis`): Reviewing implementation plans for correctness and sequencing
 - **Code Verification** (`code-verification`): Cross-referencing code against design/plan for accuracy
 
+## Deployment
+
+### Self-Contained Executables
+
+The adviser is distributed as a self-contained executable—no Bun runtime required on the target machine.
+
+| Platform | Executable | Location |
+|----------|------------|----------|
+| Windows x64 | `adviser.exe` | `.agent/skills/adviser/adviser.exe` |
+| Linux x64 | `adviser` | `.agent/skills/adviser/adviser` |
+
+### Building from Source
+
+If you need to rebuild the executables:
+
+```powershell
+# Build both Windows and Linux
+./build.ps1
+
+# Build only Windows
+./build.ps1 -WindowsOnly
+
+# Build only Linux
+./build.ps1 -LinuxOnly
+```
+
+**Build Requirements:** Bun 1.1+ (for cross-compilation)
+
 ## How to Use
 
-Run the CLI script:
+### Windows
+
+```cmd
+adviser.exe <taskType> [options]
+```
+
+### Linux
 
 ```bash
-bun run scripts/index.ts <taskType> [options]
+./adviser <taskType> [options]
 ```
 
 ### Parameters
@@ -38,26 +72,26 @@ bun run scripts/index.ts <taskType> [options]
 
 ```bash
 # Direct text
-bun run scripts/index.ts design-review -c "Your design document text..."
+adviser design-review -c "Your design document text..."
 
 # From file
-bun run scripts/index.ts design-review -c @design-doc.txt
+adviser design-review -c @design-doc.txt
 
 # From stdin
-cat design.md | bun run scripts/index.ts design-review -c @-
+cat design.md | adviser design-review -c @-
 ```
 
 ### Examples
 
 ```bash
 # Quick design review with direct text
-bun run scripts/index.ts design-review -c "API design for user auth"
+adviser design-review -c "API design for user auth"
 
 # Full CLI with file input
-bun run scripts/index.ts plan-analysis --mode workflow --context @implementation-plan.md
+adviser plan-analysis --mode workflow --context @implementation-plan.md
 
 # Code verification with timeout
-bun run scripts/index.ts code-verification -c @src/auth.ts -t 90000
+adviser code-verification -c @src/auth.ts -t 90000
 ```
 
 ## Output Formats
@@ -85,26 +119,33 @@ bun run scripts/index.ts code-verification -c @src/auth.ts -t 90000
 ```
 adviser/
 ├── SKILL.md              # This file
-├── scripts/
-│   ├── index.ts          # Main CLI entry point
-│   ├── runtimes.ts       # Claude SDK execution
-│   ├── output.ts         # Output formatting
-│   ├── motifs.ts         # Persona prompt loader
-│   ├── schemas.ts        # Zod validation schemas
-│   ├── types.ts          # TypeScript types
-│   └── motifs/           # Persona prompt templates
-│       ├── architect.txt
-│       ├── strategist.txt
-│       └── auditor.txt
-└── examples/
-    └── usage.md          # Usage examples
+├── build.ps1             # Build script for executables
+├── dist/                 # Built executables
+│   ├── adviser.exe       # Windows x64
+│   └── adviser           # Linux x64
+├── index.ts              # Main CLI entry point
+├── runtimes.ts           # Claude SDK execution
+├── output.ts             # Output formatting
+├── motifs.ts             # Persona prompt loader
+├── schemas.ts            # Zod validation schemas
+├── types.ts              # TypeScript types
+└── motifs/               # Persona prompt templates
+    ├── architect.txt
+    ├── strategist.txt
+    ├── auditor.txt
+    └── aisp-spec.md
 ```
 
 ## Prerequisites
 
-- **Bun** (v1.3.4+): `curl -fsSL https://bun.sh/install | bash`
+On the **target machine** (where adviser runs):
+
 - **Claude Code CLI**: `curl -fsSL https://claude.ai/install.sh | bash`
 - **ANTHROPIC_API_KEY**: Must be set in environment
+
+On the **build machine** (to compile executables):
+
+- **Bun** (v1.1+): `curl -fsSL https://bun.sh/install | bash`
 
 ## Configuration
 

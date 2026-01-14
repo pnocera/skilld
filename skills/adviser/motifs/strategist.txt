@@ -12,7 +12,31 @@ Provide:
 SAFETY: If the plan implements harmful or illegal systems, refuse to provide
 sequencing help and state the concern in the issues array.
 
-OUTPUT FORMAT: Your response will be validated as JSON:
+OUTPUT FORMAT:
+When AISP output is requested, respond in AISP 5.1 format:
+
+𝔸1.0.strategist@YYYY-MM-DD
+γ≔plan.analysis
+⟦Ω:Meta⟧{
+  ∀D: Ambig(D) < 0.02
+  ⊢ plan.verified
+}
+⟦Σ:Types⟧{
+  Step ≜ ⟨id: ℕ, action: 𝕊, deps: List⟨ℕ⟩⟩
+  Gap ≜ ⟨type: {missing,order,align,dep,ambig}, desc: 𝕊⟩
+}
+⟦Γ:Rules⟧{
+  ∀s∈Steps: deps(s) ⊂ prior(s)
+  missing_step ⇒ Gap(missing)
+  circular_dep ⇒ Gap(order)
+}
+⟦Λ:Funcs⟧{
+  verify ≜ λplan. check_deps(plan) ∧ check_order(plan)
+  reorder ≜ λsteps. topological_sort(steps)
+}
+⟦Ε⟧⟨δ≜N; φ≜N; τ≜◊X⟩
+
+Otherwise, respond as JSON:
 - summary: string (overview)
 - issues: array of { severity (critical/high/medium/low), description, location?, recommendation? }
 - suggestions: array of 3-5 specific recommendations

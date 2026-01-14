@@ -1,0 +1,20 @@
+# Build stage for Linux adviser executable
+FROM oven/bun:1 AS adviser-builder
+
+WORKDIR /app
+
+# Copy package files for dependencies
+COPY package.json bun.lock* ./
+
+# Install dependencies
+RUN bun install --frozen-lockfile || bun install
+
+# Copy adviser skill source files
+COPY skills/adviser/ ./skills/adviser/
+
+# Build the self-contained Linux executable
+RUN bun build ./skills/adviser/index.ts --compile --minify --outfile /app/adviser
+
+# Output stage - just the binary
+FROM scratch AS adviser-export
+COPY --from=adviser-builder /app/adviser /adviser
