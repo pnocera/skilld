@@ -23,6 +23,8 @@ Load plan, review critically, execute tasks in batches, report for review betwee
 | `OUTPUT_MODE` | aisp | Use AISP 5.1 format for AI-to-AI communication |
 | `ON_MAX_REACHED` | stop | Halt and report to human |
 | `SUCCESS_CRITERIA` | `⊢Verdict(approve)` or no `⊘`/`◊⁻` issues | When batch is approved |
+| `CHECKSUM_SKIP` | false | Enable checksum-based skip for unchanged tasks |
+| `PROGRESS_LOG` | false | Enable persistent progress logging to docs/execution/ |
 
 **AISP Awareness**: Before interpreting adviser output, reference `.agent/skills/adviser/aisp-quick-ref.md`. Key symbols:
 - `⊢Verdict(approve|revise|reject)` — Final verdict
@@ -36,6 +38,9 @@ Override defaults by announcing before batch: "This batch: MAX_ITERATIONS=10"
 ## The Process
 
 ### Step 1: Load and Review Plan
+
+**Announce phase:** "📋 Phase: Plan Review"
+
 1. Read plan file
 2. Review critically - identify any questions or concerns about the plan
 3. If concerns: Raise them with your human partner before starting
@@ -44,20 +49,29 @@ Override defaults by announcing before batch: "This batch: MAX_ITERATIONS=10"
 ### Step 2: Execute Batch (with adviser loop)
 **Default: First 3 tasks**
 
+**Announce phase:** "⚡ Phase: Execution Batch N" before starting each batch
+
 ```
 batch_iteration = 0
 DO:
   FOR each task in batch:
-    1. Mark as in_progress
-    2. Follow each step exactly (plan has bite-sized steps)
-    3. Run verifications as specified
-    4. Mark as completed
+    1. **Checksum check (if CHECKSUM_SKIP=true):**
+       - Compute: task content → MD5 hash
+       - Check: if `.cache/task-<id>.md5` exists and matches, skip task
+       - Announce: "⏭️ Task <N>: Skipped (unchanged)"
+       - If skipped, mark as completed and continue to next task
+    
+    2. Mark as in_progress
+    3. Follow each step exactly (plan has bite-sized steps)
+    4. Run verifications as specified
+    5. Mark as completed
+    6. **Save checksum (if CHECKSUM_SKIP=true):** write hash to `.cache/task-<id>.md5`
 
-  5. Run adviser: adviser code-verification -m aisp -c @<batch_files>
-  6. IF adviser returns critical/high issues:
+  7. Run adviser: adviser code-verification -m aisp -c @<batch_files>
+  8. IF adviser returns critical/high issues:
      - Fix identified issues
      - batch_iteration++
-  7. ELSE: batch approved
+  9. ELSE: batch approved
 UNTIL (batch approved) OR (batch_iteration >= MAX_ITERATIONS)
 
 IF batch_iteration >= MAX_ITERATIONS:
@@ -72,6 +86,26 @@ When batch complete:
 - Show adviser loop summary: iterations, issues resolved, any remaining
 - Say: "Ready for feedback."
 
+### Step 3a: Log Progress (Optional, if PROGRESS_LOG=true)
+
+After batch completion, persist execution state to enable recovery and auditing:
+
+1. Create/append to: `docs/execution/progress-<plan-name>.txt`
+2. Log entry format:
+   ```
+   ============================================================
+   Timestamp: <ISO8601>
+   Batch: <N>
+   Status: <started|completed|failed|retry>
+   Tasks: <list of task names in batch>
+   Verification: <pass|fail with summary>
+   Issues: <any adviser concerns or blockers>
+   ============================================================
+   ```
+3. This log survives session interruptions and enables resume from last successful batch
+
+**When to skip:** If batch completed quickly with no issues, logging is optional.
+
 ### Step 4: Continue
 Based on feedback:
 - Apply changes if needed
@@ -79,6 +113,8 @@ Based on feedback:
 - Repeat until complete
 
 ### Step 5: Complete Development
+
+**Announce phase:** "✅ Phase: Finalization"
 
 After all tasks complete and verified:
 - Announce: "I'm using the finishing-a-development-branch skill to complete this work."

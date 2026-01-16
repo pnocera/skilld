@@ -229,3 +229,25 @@ bun run skills/adviser/index.ts design-review -m aisp -c @document.md
 
 This leverages Bun as a recognized runtime, which may avoid prompts on some configurations.
 
+## Execute-Plan Workflow Enhancements
+
+The `execute-plan` workflow includes practices inspired by [Ralph Inferno](https://github.com/snarktank/ralph):
+
+### Phase Announcements
+Clear phase transitions during execution for improved visibility:
+- 📋 **Plan Review** - Loading and reviewing the plan
+- ⚡ **Execution Batch N** - Executing each batch
+- ✅ **Finalization** - Completing development
+
+### Progress Logging (Optional)
+Enable with `PROGRESS_LOG=true` before execution:
+- Persistent logging of batch execution status
+- Logs saved to `docs/execution/progress-<plan-name>.txt`
+- Enables recovery from interrupted sessions
+- Captures tasks, verification results, and issues
+
+### Checksum-Based Skip (Optional)
+Enable with `CHECKSUM_SKIP=true` before execution:
+- Skips unchanged tasks on re-runs for idempotent execution
+- Checksums stored in `.cache/task-<id>.md5`
+- Clear cache with `rm -rf .cache/*.md5` to force full re-run
