@@ -5,7 +5,7 @@ bun.lockb
 
 # Node modules
 node_modules/
-
+ralph-inferno-main/
 # Environment files
 .env
 .env.local
