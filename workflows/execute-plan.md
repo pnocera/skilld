@@ -24,7 +24,7 @@ Load plan, review critically, execute tasks in batches, report for review betwee
 | `ON_MAX_REACHED` | stop | Halt and report to human |
 | `SUCCESS_CRITERIA` | `⊢Verdict(approve)` or no `⊘`/`◊⁻` issues | When batch is approved |
 
-**AISP Awareness**: Before interpreting adviser output, load the AISP 5.1 specification from `.agent/skills/adviser/AISP_SPEC.md`. Key symbols:
+**AISP Awareness**: Before interpreting adviser output, reference `.agent/skills/adviser/aisp-quick-ref.md`. Key symbols:
 - `⊢Verdict(approve|revise|reject)` — Final verdict
 - `⊘` = critical, `◊⁻` = high, `◊` = medium, `◊⁺` = low severity
 - `⟦Γ:Rules⟧` — Logic block with decision rules

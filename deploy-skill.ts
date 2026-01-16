@@ -83,11 +83,6 @@ function copyWorkflows(sourceWorkflowsDir: string, destWorkflowsDir: string): st
   return copiedFiles;
 }
 
-// Detect target platform
-function detectPlatform(): 'windows' | 'linux' {
-  return process.platform === 'win32' ? 'windows' : 'linux';
-}
-
 // Main deployment function
 async function deploy(destination: string) {
   const resolvedDest = resolve(destination);
@@ -101,6 +96,7 @@ async function deploy(destination: string) {
   const sourceWindowsExe = join(sourceDistDir, 'adviser.exe');
   const sourceLinuxExe = join(sourceDistDir, 'adviser');
   const sourceAispSpec = join(sourceSkillDir, 'motifs', 'aisp-spec.md');
+  const sourceAispQuickRef = join(sourceSkillDir, 'motifs', 'aisp-quick-ref.md');
 
   log('=== Antigravity Skill Deployer ===', 'bright');
   log(`Deploying "${skillName}" skill to: ${resolvedDest}\n`, 'blue');
@@ -167,11 +163,17 @@ async function deploy(destination: string) {
   log(`Copying SKILL.md...`, 'blue');
   copySync(sourceSkillMd, join(skillDestDir, 'SKILL.md'));
 
-  // Copy AISP 5.1 specification for AI-to-AI communication
+  // Copy AISP 5.1 specification (full spec for reviewer AI)
   if (existsSync(sourceAispSpec)) {
     log(`Copying AISP 5.1 Specification...`, 'blue');
-    copySync(sourceAispSpec, join(skillDestDir, 'AISP_SPEC.md'));
-    log(`  → AISP_SPEC.md (for AI-to-AI AISP-aware communication)`, 'green');
+    copySync(sourceAispSpec, join(skillDestDir, 'aisp-spec.md'));
+    log(`  → aisp-spec.md (full spec for Reviewer AI)`, 'green');
+  }
+
+  // Copy AISP Quick Reference (minimal ref for caller AI)
+  if (existsSync(sourceAispQuickRef)) {
+    copySync(sourceAispQuickRef, join(skillDestDir, 'aisp-quick-ref.md'));
+    log(`  → aisp-quick-ref.md (quick ref for Caller AI)`, 'green');
   }
 
   // Copy executables
@@ -185,86 +187,14 @@ async function deploy(destination: string) {
     log(`  → adviser`, 'green');
   }
 
-  // Create examples directory with updated examples
-  const examplesDir = join(skillDestDir, 'examples');
-  mkdirSync(examplesDir, { recursive: true });
-
-  const platform = detectPlatform();
-  const adviserCmd = platform === 'windows' ? 'adviser.exe' : './adviser';
-
-  const exampleContent = `# Adviser Skill Usage Examples
-
-## Quick Start
-
-\`\`\`bash
-# Design review with direct text
-${adviserCmd} design-review -c "Your design document text..."
-
-# Plan analysis with file input
-${adviserCmd} plan-analysis -c @implementation-plan.md
-
-# Code verification with workflow output
-${adviserCmd} code-verification -m workflow -c @src/auth.ts
-\`\`\`
-
-## Full CLI Options
-
-\`\`\`bash
-${adviserCmd} <taskType> [options]
-
-Arguments:
-  taskType     Required: design-review, plan-analysis, code-verification
-
-Options:
-  --mode, -m      Output mode: human (default) or workflow
-  --context, -c   Text/document content to analyze (required)
-  --timeout, -t   Timeout in milliseconds (default: 60000)
-  --help, -h      Show help
-\`\`\`
-
-## Context Input Methods
-
-\`\`\`bash
-# Direct text
-${adviserCmd} design-review -c "API design document..."
-
-# From file
-${adviserCmd} design-review -c @design-doc.txt
-
-# From stdin
-cat design.md | ${adviserCmd} design-review -c @-
-\`\`\`
-
-## Output Modes
-
-\`\`\`bash
-# Human mode (default) - saves markdown to docs/reviews/
-${adviserCmd} design-review -c @design.md
-
-# Workflow mode - JSON to stdout for pipeline integration
-${adviserCmd} design-review -m workflow -c @design.md > result.json
-\`\`\`
-
-## Prerequisites
-
-The adviser executable is self-contained—no Bun runtime required!
-
-You just need Claude CLI authenticated:
-\`\`\`bash
-# Install
-curl -fsSL https://claude.ai/install.sh | bash
-
-# Authenticate
-claude login
-
-# Accept non-interactive mode (required once)
-claude --dangerously-skip-permissions
-\`\`\`
-
-No separate \`ANTHROPIC_API_KEY\` needed—uses Claude CLI's stored credentials!
-`;
-
-  writeFileSync(join(examplesDir, 'usage.md'), exampleContent);
+  // Copy examples
+  const sourceExamplesDir = join(sourceSkillDir, 'examples');
+  const destExamplesDir = join(skillDestDir, 'examples');
+  if (existsSync(sourceExamplesDir)) {
+    log(`Copying examples...`, 'blue');
+    copySync(sourceExamplesDir, destExamplesDir);
+    log(`  → examples/`, 'green');
+  }
 
   // Copy workflows
   const sourceWorkflowsDir = join(process.cwd(), 'workflows');
