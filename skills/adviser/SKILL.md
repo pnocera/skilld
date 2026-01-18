@@ -34,7 +34,7 @@ Provides critical analysis with three specialized personas for different types o
 | `taskType` | Yes | One of: `design-review`, `plan-analysis`, `code-verification` |
 | `--mode, -m` | No | Output mode: `human` (default), `workflow` (JSON), or `aisp` (AISP 5.1) |
 | `--context, -c` | Yes | Text/document content to analyze |
-| `--timeout, -t` | No | Timeout in ms (default: 60000) |
+| `--timeout, -t` | No | Timeout in ms (default: 300000) |
 
 ### Context Input Methods
 

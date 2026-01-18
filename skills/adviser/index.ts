@@ -24,7 +24,7 @@ function parseArgs(args: string[]): { taskType: PersonaType; mode: OutputMode; c
   let taskType: PersonaType | null = null;
   let mode: OutputMode = 'human';
   let context = '';
-  let timeout = 60000;
+  let timeout = 300000;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -97,7 +97,7 @@ async function main() {
     console.error('');
     console.error('Options:  --mode, -m <mode>      Output mode: human (default), workflow (JSON), or aisp (AISP 5.1)');
     console.error('  --context, -c <text>   Text/document content to analyze');
-    console.error('  --timeout, -t <ms>     Timeout in milliseconds (default: 60000)');
+    console.error('  --timeout, -t <ms>     Timeout in milliseconds (default: 300000)');
     console.error('  --help, -h             Show this help message');
     console.error('');
     console.error('Context Input:  --context <text>       Direct text input');
