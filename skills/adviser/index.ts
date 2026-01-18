@@ -12,7 +12,7 @@ function parseArgs(args: string[]): { taskType: PersonaType; mode: OutputMode; i
   let inputFile = '';
   let outputFile: string | undefined;
   let outputDir: string | undefined;
-  let timeout = 300000;
+  let timeout = 1800000;  // 30 minutes default
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];

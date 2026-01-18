@@ -36,7 +36,7 @@ Provides critical analysis with three specialized personas for different types o
 | `--output, -o` | No | Explicit output file path (auto-generated if omitted) |
 | `--output-dir` | No | Override output directory (default: docs/reviews/) |
 | `--mode, -m` | No | Output mode: `aisp` (default), `human` (markdown), or `workflow` (JSON) |
-| `--timeout, -t` | No | Timeout in ms (default: 300000) |
+| `--timeout, -t` | No | Timeout in ms (default: 1800000 / 30 min) |
 
 ### Examples
 
