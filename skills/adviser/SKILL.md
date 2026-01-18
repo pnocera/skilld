@@ -18,13 +18,13 @@ Provides critical analysis with three specialized personas for different types o
 ### Windows
 
 ```cmd
-adviser.exe <taskType> [options]
+{{ADVISER_EXE}} <taskType> [options]
 ```
 
 ### Linux
 
 ```bash
-./adviser <taskType> [options]
+{{ADVISER_BIN}} <taskType> [options]
 ```
 
 ### Parameters
@@ -40,26 +40,26 @@ adviser.exe <taskType> [options]
 
 ```bash
 # Direct text
-adviser design-review -c "Your design document text..."
+{{ADVISER_BIN}} design-review -c "Your design document text..."
 
 # From file
-adviser design-review -c @design-doc.txt
+{{ADVISER_BIN}} design-review -c @design-doc.txt
 
 # From stdin
-cat design.md | adviser design-review -c @-
+cat design.md | {{ADVISER_BIN}} design-review -c @-
 ```
 
 ### Examples
 
 ```bash
 # Quick design review with direct text
-adviser design-review -c "API design for user auth"
+{{ADVISER_BIN}} design-review -c "API design for user auth"
 
 # Plan analysis with AISP output for AI-to-AI communication
-adviser plan-analysis -m aisp -c @implementation-plan.md
+{{ADVISER_BIN}} plan-analysis -m aisp -c @implementation-plan.md
 
 # Code verification with JSON output
-adviser code-verification -m workflow -c @src/auth.ts
+{{ADVISER_BIN}} code-verification -m workflow -c @src/auth.ts
 ```
 
 ## Output Formats

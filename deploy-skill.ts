@@ -1,16 +1,16 @@
 #!/usr/bin/env bun
 /**
- * Deploy the adviser skill to an Antigravity-compatible project.
+ * Deploy the adviser skill to a Claude Code project.
  *
  * Deploys self-contained executables - no Bun runtime required on target.
  *
  * Usage:
- *   bun deploy-skill.ts [destination]
+ *   bun deploy-skill.ts [destination] [--target-dir .claude|.agent]
  *
  * Examples:
  *   bun deploy-skill.ts                    # Interactive prompt for destination
  *   bun deploy-skill.ts /path/to/project   # Deploy to specific project
- *   bun deploy-skill.ts .                  # Deploy to current directory
+ *   bun deploy-skill.ts . --target-dir .agent # Deploy to .agent in current dir
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
@@ -63,7 +63,7 @@ function copySync(src: string, dest: string) {
 }
 
 // Copy workflow markdown files
-function copyWorkflows(sourceWorkflowsDir: string, destWorkflowsDir: string): string[] {
+function copyWorkflows(sourceWorkflowsDir: string, destWorkflowsDir: string, agentDirName: string): string[] {
   const copiedFiles: string[] = [];
 
   if (!existsSync(sourceWorkflowsDir) || !statSync(sourceWorkflowsDir).isDirectory()) {
@@ -72,11 +72,24 @@ function copyWorkflows(sourceWorkflowsDir: string, destWorkflowsDir: string): st
 
   mkdirSync(destWorkflowsDir, { recursive: true });
 
+  const isClaude = agentDirName === '.claude';
+
   for (const entry of readdirSync(sourceWorkflowsDir)) {
-    const fullPath = join(sourceWorkflowsDir, entry);
-    if (entry.endsWith('.md') && statSync(fullPath).isFile()) {
-      copySync(fullPath, join(destWorkflowsDir, entry));
-      copiedFiles.push(entry);
+    const fullSourcePath = join(sourceWorkflowsDir, entry);
+    if (entry.endsWith('.md') && statSync(fullSourcePath).isFile()) {
+      let destFilename = entry;
+      let content = readFileSync(fullSourcePath, 'utf8');
+
+      if (isClaude) {
+        // Clean up frontmatter for Claude slash commands
+        // 1. Remove 'name:' field as it's for skills, not commands
+        content = content.replace(/^name:.*\n/gm, '');
+        // 2. Remove Antigravity-specific comments
+        content = content.replace(/^\/\/ turbo.*\n/gm, '');
+      }
+
+      writeFileSync(join(destWorkflowsDir, destFilename), content);
+      copiedFiles.push(destFilename);
     }
   }
 
@@ -84,10 +97,28 @@ function copyWorkflows(sourceWorkflowsDir: string, destWorkflowsDir: string): st
 }
 
 // Main deployment function
-async function deploy(destination: string) {
+async function deploy(destination: string, targetDir: string = '.agent') {
   const resolvedDest = resolve(destination);
   const skillName = 'adviser';
-  const skillDestDir = join(resolvedDest, '.agent', 'skills', skillName);
+
+  // Check if destination exists and is a directory
+  if (!existsSync(resolvedDest)) {
+    error(`Destination directory does not exist: ${resolvedDest}`);
+    process.exit(1);
+  }
+
+  if (!statSync(resolvedDest).isDirectory()) {
+    error(`Destination is not a directory: ${resolvedDest}`);
+    process.exit(1);
+  }
+
+  const agentDirName = targetDir;
+  info(`Targeting ${agentDirName === '.claude' ? 'Claude Code' : 'Antigravity'} directory: ${agentDirName}`);
+
+  const skillDestDir = join(resolvedDest, agentDirName, 'skills', skillName);
+  const skillScriptsDir = join(skillDestDir, 'scripts');
+  const workflowDirName = agentDirName === '.claude' ? 'commands' : 'workflows';
+  const destWorkflowsDir = join(resolvedDest, agentDirName, workflowDirName);
 
   // Source paths
   const sourceSkillDir = join(process.cwd(), 'skills', skillName);
@@ -98,7 +129,7 @@ async function deploy(destination: string) {
   const sourceAispSpec = join(sourceSkillDir, 'motifs', 'aisp-spec.md');
   const sourceAispQuickRef = join(sourceSkillDir, 'motifs', 'aisp-quick-ref.md');
 
-  log('=== Antigravity Skill Deployer ===', 'bright');
+  log(`=== ${agentDirName === '.claude' ? 'Claude' : 'Antigravity'} Skill Deployer ===`, 'bright');
   log(`Deploying "${skillName}" skill to: ${resolvedDest}\n`, 'blue');
 
   // Validate source
@@ -133,18 +164,6 @@ async function deploy(destination: string) {
   }
   log('', 'reset');
 
-  // Check if destination exists and is a directory
-  if (!existsSync(resolvedDest)) {
-    warn(`Destination directory does not exist: ${resolvedDest}`);
-    warn('Please provide the path to an existing project.');
-    process.exit(1);
-  }
-
-  if (!statSync(resolvedDest).isDirectory()) {
-    error(`Destination is not a directory: ${resolvedDest}`);
-    process.exit(1);
-  }
-
   // Check if skill already exists at destination
   if (existsSync(skillDestDir)) {
     warn(`Skill directory already exists: ${skillDestDir}`);
@@ -158,10 +177,19 @@ async function deploy(destination: string) {
   // Create skill directory structure
   log('Creating skill directory structure...', 'blue');
   mkdirSync(skillDestDir, { recursive: true });
+  mkdirSync(skillScriptsDir, { recursive: true });
 
-  // Copy SKILL.md
-  log(`Copying SKILL.md...`, 'blue');
-  copySync(sourceSkillMd, join(skillDestDir, 'SKILL.md'));
+  // Copy and process SKILL.md
+  log(`Copying SKILL.md with path adaptation...`, 'blue');
+  const skillMdContent = readFileSync(sourceSkillMd, 'utf8');
+  const winPath = `${agentDirName === '.agent' ? '.agent' : '.claude'}\\skills\\${skillName}\\scripts\\adviser.exe`;
+  const linuxPath = `${agentDirName}/skills/${skillName}/scripts/adviser`;
+
+  const processedMd = skillMdContent
+    .replace(/{{ADVISER_EXE}}/g, winPath)
+    .replace(/{{ADVISER_BIN}}/g, linuxPath);
+
+  writeFileSync(join(skillDestDir, 'SKILL.md'), processedMd);
 
   // Copy AISP 5.1 specification (full spec for reviewer AI)
   if (existsSync(sourceAispSpec)) {
@@ -177,14 +205,14 @@ async function deploy(destination: string) {
   }
 
   // Copy executables
-  log(`Copying executables...`, 'blue');
+  log(`Copying executables to scripts/...`, 'blue');
   if (hasWindowsExe) {
-    copySync(sourceWindowsExe, join(skillDestDir, 'adviser.exe'));
-    log(`  → adviser.exe`, 'green');
+    copySync(sourceWindowsExe, join(skillScriptsDir, 'adviser.exe'));
+    log(`  → scripts/adviser.exe`, 'green');
   }
   if (hasLinuxExe) {
-    copySync(sourceLinuxExe, join(skillDestDir, 'adviser'));
-    log(`  → adviser`, 'green');
+    copySync(sourceLinuxExe, join(skillScriptsDir, 'adviser'));
+    log(`  → scripts/adviser`, 'green');
   }
 
   // Copy examples
@@ -198,29 +226,29 @@ async function deploy(destination: string) {
 
   // Copy workflows
   const sourceWorkflowsDir = join(process.cwd(), 'workflows');
-  const destWorkflowsDir = join(resolvedDest, '.agent', 'workflows');
-  log(`Copying workflow files...`, 'blue');
-  const copiedWorkflows = copyWorkflows(sourceWorkflowsDir, destWorkflowsDir);
+  log(`Copying workflow files to ${workflowDirName}/...`, 'blue');
+  const copiedWorkflows = copyWorkflows(sourceWorkflowsDir, destWorkflowsDir, agentDirName);
 
   // Summary
   log('\n=== Deployment Complete ===', 'bright');
   log(`Skill deployed to: ${skillDestDir}`, 'green');
   if (copiedWorkflows.length > 0) {
-    log(`Workflows deployed to: ${destWorkflowsDir}`, 'green');
+    log(`${agentDirName === '.claude' ? 'Commands' : 'Workflows'} deployed to: ${destWorkflowsDir}`, 'green');
   }
   log('\nDirectory structure:', 'blue');
-  log(`  .agent/skills/${skillName}/`, 'blue');
+  log(`  ${agentDirName}/skills/${skillName}/`, 'blue');
   log(`  ├── SKILL.md`, 'blue');
+  log(`  └── scripts/`, 'blue');
   if (hasWindowsExe) {
-    log(`  ├── adviser.exe     (Windows executable)`, 'blue');
+    log(`      ├── adviser.exe     (Windows executable)`, 'blue');
   }
   if (hasLinuxExe) {
-    log(`  ├── adviser         (Linux executable)`, 'blue');
+    log(`      ├── adviser         (Linux executable)`, 'blue');
   }
   log(`  └── examples/`, 'blue');
   log(`      └── usage.md`, 'blue');
   if (copiedWorkflows.length > 0) {
-    log(`  .agent/workflows/`, 'blue');
+    log(`  ${agentDirName}/${workflowDirName}/`, 'blue');
     for (const wf of copiedWorkflows) {
       log(`  ├── ${wf}`, 'blue');
     }
@@ -230,10 +258,10 @@ async function deploy(destination: string) {
   log('\nTo use the skill in your project:', 'bright');
 
   if (hasWindowsExe) {
-    log(`  Windows: .agent\\skills\\${skillName}\\adviser.exe <taskType> -c <context>`, 'green');
+    log(`  Windows: ${agentDirName === '.agent' ? '.agent' : '.claude'}\\skills\\${skillName}\\scripts\\adviser.exe <taskType> -c <context>`, 'green');
   }
   if (hasLinuxExe) {
-    log(`  Linux:   .agent/skills/${skillName}/adviser <taskType> -c <context>`, 'green');
+    log(`  Linux:   ${agentDirName}/skills/${skillName}/scripts/adviser <taskType> -c <context>`, 'green');
   }
 
   log('\nExamples:', 'blue');
@@ -259,27 +287,38 @@ async function confirmOverwrite(): Promise<boolean> {
 }
 
 // Parse command line arguments
-function parseArgs(): string | null {
+function parseArgs(): { destination: string | null, targetDir: string } {
   const args = process.argv.slice(2);
+  let destination: string | null = null;
+  let targetDir = '.agent';
 
-  if (args.length === 0) {
-    // Interactive mode
-    return null;
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === '--help' || arg === '-h') {
+      printUsage();
+      process.exit(0);
+    } else if (arg === '--target-dir' || arg === '-t') {
+      const next = args[i + 1];
+      if (next && (next === '.claude' || next === '.agent')) {
+        targetDir = next;
+        i++;
+      } else {
+        error('Invalid --target-dir. Must be .claude or .agent');
+        process.exit(1);
+      }
+    } else if (arg && !destination && !arg.startsWith('-')) {
+      destination = arg;
+    }
   }
 
-  if (args.length === 1 && (args[0] === '--help' || args[0] === '-h')) {
-    printUsage();
-    process.exit(0);
-  }
-
-  return args[0] || null;
+  return { destination, targetDir };
 }
 
 function printUsage() {
   console.log(`
 Usage: bun deploy-skill.ts [destination]
 
-Deploy the adviser skill to an Antigravity-compatible project.
+Deploy the adviser skill to a Claude Code project.
 
 This deploys self-contained executables - no Bun runtime required on target!
 
@@ -287,12 +326,13 @@ Arguments:
   destination    Path to the project directory (default: prompt for input)
 
 Options:
-  -h, --help     Show this help message
+  -t, --target-dir <dir>  Target directory name: .agent (default) or .claude
+  -h, --help              Show this help message
 
 Examples:
   bun deploy-skill.ts                    # Interactive prompt for destination
   bun deploy-skill.ts /path/to/project   # Deploy to specific project
-  bun deploy-skill.ts .                  # Deploy to current directory
+  bun deploy-skill.ts . -t .agent        # Deploy to legacy .agent directory
 
 The skill will be deployed to:
   <destination>/.agent/skills/adviser/
@@ -308,7 +348,7 @@ Prerequisites on target machine:
   - Must have run 'claude --dangerously-skip-permissions' once
 
 For more information, see:
-  https://antigravity.google/docs/skills
+  https://code.claude.com/docs/en/skills
   https://agentskills.io/home
 `);
 }
@@ -337,13 +377,13 @@ async function interactiveDestination(): Promise<string> {
 
 // Main entry point
 async function main() {
-  const arg = parseArgs();
+  const { destination, targetDir } = parseArgs();
 
-  if (arg === null) {
-    const destination = await interactiveDestination();
-    await deploy(destination);
+  if (destination === null) {
+    const dest = await interactiveDestination();
+    await deploy(dest, targetDir);
   } else {
-    await deploy(arg);
+    await deploy(destination, targetDir);
   }
 }
 

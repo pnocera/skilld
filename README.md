@@ -2,7 +2,7 @@
   <img src="assets/adviser.jpg" width="100%" alt="Skilld Adviser Banner">
 </p>
 
-# Adviser Skill for Antigravity
+# Adviser Skill for Claude Code
 
 Critical analysis and quality assurance advisor using the Claude Agent SDK.
 
@@ -31,7 +31,7 @@ The adviser is distributed as **self-contained executables**—no Bun runtime re
 bun deploy-skill.ts /path/to/your/project
 ```
 
-This copies the executables to `.agent/skills/adviser/` in your project.
+This copies the executables to `.claude/skills/adviser/` in your project.
 
 ### Option 2: Use Directly
 
@@ -92,7 +92,7 @@ The script performs the following steps:
 4. **Test**: Runs `bun test` to ensure build quality.
 5. **Compile**: Uses `bun build --compile` to create standalone executables.
 6. **Validate**: Checks artifact integrity and size.
-7. **Deploy**: (Optional) Deploys to a target Antigravity project.
+7. **Deploy**: (Optional) Deploys to a target Claude Code project.
 
 ## Usage
 
@@ -163,14 +163,7 @@ skilld/
 │       ├── strategist.txt
 │       ├── auditor.txt
 │       └── aisp-spec.md
-├── workflows/                # Antigravity workflows
-│   ├── brainstorm.md
-│   ├── writing-plan.md
-│   └── execute-plan.md
-├── Dockerfile.adviser        # Docker build for Linux executable
-├── deploy-skill.ts           # Deployment script
-├── package.json
-└── tsconfig.json
+├── workflows/                # Agent commands / workflows
 ```
 
 ## Deployment
@@ -188,37 +181,29 @@ bun deploy-skill.ts /path/to/project
 Deploys to:
 ```
 project/
-└── .agent/
+└── .agent/ (or .claude/)
     ├── skills/adviser/
-    │   ├── adviser.exe
-    │   ├── adviser
+    │   ├── scripts/
+    │   │   ├── adviser.exe
+    │   │   └── adviser
     │   ├── SKILL.md
     │   ├── AISP_SPEC.md
     │   └── examples/
-    └── workflows/
+    └── workflows/ (or commands/)
         ├── brainstorm.md
         ├── writing-plan.md
         └── execute-plan.md
 ```
 
-## Antigravity Terminal Auto-Execution (Allowlist)
+## Claude Code Terminal Auto-Execution
 
-By default, Antigravity prompts for approval when running unknown executables like `adviser.exe`. To enable seamless execution without prompts:
+By default, Claude Code may prompt for approval when running unknown executables like `adviser`.
 
-### Option 1: Add to Allowlist (Recommended)
+### Terminal Command Approval
 
-1. Open **Settings** in Antigravity IDE
-2. Go to the **Agent** tab
-3. Find **Terminal Command Auto Execution** section
-4. Add the following to the **Allowlist**:
-   - `.agent/skills/adviser/adviser.exe` (Windows)
-   - `.agent/skills/adviser/adviser` (Linux/macOS)
+When Claude Code attempts to run the `adviser`, you will be prompted to allow the execution. You can use the `--dangerously-skip-permissions` flag when starting `claude` to skip these prompts for a session, though this should be used with caution.
 
-### Option 2: Use "Turbo" Mode
-
-Set **Terminal Command Auto Execution** policy to **Always Proceed / Turbo**. This auto-executes all commands except those in the denylist.
-
-> **Note:** For PowerShell, allowlist entries match any contiguous subsequence of command tokens. For Unix shells, entries must match a prefix of the command's tokens.
+For the most secure experience, always review the command before approving.
 
 ### Option 3: Use `bun run` (Development)
 

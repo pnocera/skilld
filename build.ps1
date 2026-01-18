@@ -53,7 +53,8 @@ param(
     [switch]$WindowsOnly,
     [switch]$LinuxOnly,
     [switch]$Release = $true,
-    [string]$Deploy
+    [string]$Deploy,
+    [string]$TargetDir = ".agent"
 )
 
 $ErrorActionPreference = "Stop"
@@ -315,8 +316,8 @@ if ($Deploy) {
     
     Push-Location $ProjectRoot
     try {
-        Invoke-Native -Script { bun run deploy-skill.ts $Deploy } -ErrorMsg "Deployment failed"
-        Write-Success "Deployed to: $Deploy"
+        Invoke-Native -Script { bun run deploy-skill.ts $Deploy --target-dir $TargetDir } -ErrorMsg "Deployment failed"
+        Write-Success "Deployed to: $Deploy (target: $TargetDir)"
     } finally {
         Pop-Location
     }
