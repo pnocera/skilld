@@ -51,11 +51,14 @@ For each design section:
 iteration = 0
 DO:
   1. Present section (200-300 words)
-  2. Run: adviser design-review -m aisp -c @<section_content>
-  3. IF adviser returns critical/high issues:
+  2. Write section to temp file: /tmp/design-section.md
+  3. Run: adviser design-review --input /tmp/design-section.md --mode aisp
+  4. Read manifest from stdout path to find output .aisp file
+  5. Parse AISP output for verdict/issues
+  6. IF adviser returns critical/high issues:
      - Revise section based on feedback
      - iteration++
-  4. ELSE: section approved
+  7. ELSE: section approved
 UNTIL (section approved) OR (iteration >= MAX_ITERATIONS)
 
 IF iteration >= MAX_ITERATIONS:

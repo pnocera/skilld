@@ -67,11 +67,14 @@ DO:
     5. Mark as completed
     6. **Save checksum (if CHECKSUM_SKIP=true):** write hash to `.cache/task-<id>.md5`
 
-  7. Run adviser: adviser code-verification -m aisp -c @<batch_files>
-  8. IF adviser returns critical/high issues:
+  7. Write batch files list to: /tmp/batch-files.md
+  8. Run: adviser code-verification --input /tmp/batch-files.md --mode aisp
+  9. Read manifest from stdout path (format: `[Adviser] Output manifest: <path>`)
+  10. Parse manifest JSON to get asset paths, then read .aisp file for verdict
+  11. IF adviser returns critical/high issues:
      - Fix identified issues
      - batch_iteration++
-  9. ELSE: batch approved
+  12. ELSE: batch approved
 UNTIL (batch approved) OR (batch_iteration >= MAX_ITERATIONS)
 
 IF batch_iteration >= MAX_ITERATIONS:

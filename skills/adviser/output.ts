@@ -60,6 +60,13 @@ async function writeManifest(
   return manifestPath;
 }
 
+/**
+ * Generate a short unique ID for filenames
+ */
+function generateUniqueId(): string {
+  return Math.random().toString(36).substring(2, 6);
+}
+
 export async function handleOutput(
   result: AnalysisResult,
   mode: OutputMode,
@@ -72,7 +79,7 @@ export async function handleOutput(
 
   if (mode === 'workflow') {
     // Workflow mode: write JSON to file
-    const filename = outputFile || `review-${type}-${Date.now()}.json`;
+    const filename = outputFile || `review-${type}-${Date.now()}-${generateUniqueId()}.json`;
     const path = outputFile?.startsWith('/') ? outputFile : join(baseDir, filename);
 
     const fs = await import('node:fs');
@@ -187,7 +194,7 @@ export async function handleOutput(
 `;
 
     // Save AISP document
-    const filename = outputFile || `review-${type}-${Date.now()}.aisp`;
+    const filename = outputFile || `review-${type}-${Date.now()}-${generateUniqueId()}.aisp`;
     const path = outputFile?.startsWith('/') ? outputFile : join(baseDir, filename);
 
     const fs = await import('node:fs');
@@ -204,7 +211,7 @@ export async function handleOutput(
   }
 
   // Human mode: Convert to markdown and save
-  const filename = outputFile || `review-${type}-${Date.now()}.md`;
+  const filename = outputFile || `review-${type}-${Date.now()}-${generateUniqueId()}.md`;
   const path = outputFile?.startsWith('/') ? outputFile : join(baseDir, filename);
 
   // Build Markdown content

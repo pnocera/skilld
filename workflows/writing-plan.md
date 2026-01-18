@@ -110,11 +110,14 @@ Before offering execution choice, validate the complete plan:
 ```
 iteration = 0
 DO:
-  1. Run: adviser plan-analysis -m aisp -c @<plan_file>
-  2. IF adviser returns critical/high issues:
+  1. Save plan to: docs/plans/YYYY-MM-DD-<feature-name>.md
+  2. Run: adviser plan-analysis --input docs/plans/YYYY-MM-DD-<feature-name>.md --mode aisp
+  3. Read manifest from stdout path (format: `[Adviser] Output manifest: <path>`)
+  4. Parse manifest JSON to get asset paths, then read .aisp file for verdict
+  5. IF adviser returns critical/high issues:
      - Revise plan based on feedback
      - iteration++
-  3. ELSE: plan approved
+  6. ELSE: plan approved
 UNTIL (plan approved) OR (iteration >= MAX_ITERATIONS)
 
 IF iteration >= MAX_ITERATIONS:

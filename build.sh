@@ -40,6 +40,7 @@ show_help() {
     echo "  --no-release             Build without minification (default is release mode)."
     echo "  --deploy, -Deploy <path>  Deploy to a target directory after build."
     echo "  --target-dir, -TargetDir <dir> Output dir: .agent (default) or .claude"
+    echo "  --claude                 Shorthand for --target-dir .claude"
     echo "  --help, -h               Show this help message."
     echo ""
 }
@@ -65,6 +66,7 @@ while [[ "$#" -gt 0 ]]; do
         --no-release) RELEASE=false ;;
         --deploy|-Deploy) DEPLOY="$2"; shift ;;
         --target-dir|-TargetDir) TARGET_DIR="$2"; shift ;;
+        --claude) TARGET_DIR=".claude" ;;
         --help|-h) show_help; exit 0 ;;
         *) echo "Unknown parameter: $1"; show_help; exit 1 ;;
     esac

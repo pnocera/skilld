@@ -73,9 +73,11 @@ All output is written to files (no stdout output except status messages).
 ## Output File Naming
 
 When `--output` is not specified, files are auto-generated with the pattern:
-- `review-<taskType>-<timestamp>.md` (human mode)
-- `review-<taskType>-<timestamp>.json` (workflow mode)
-- `review-<taskType>-<timestamp>.aisp` (aisp mode)
+- `review-<taskType>-<timestamp>-<id>.md` (human mode)
+- `review-<taskType>-<timestamp>-<id>.json` (workflow mode)
+- `review-<taskType>-<timestamp>-<id>.aisp` (aisp mode)
+
+The 4-character `<id>` ensures unique filenames even when running multiple advisers in parallel.
 
 Files are saved to `docs/reviews/` by default, or the directory specified by `--output-dir` or `ADVISED_OUTPUT_DIR` environment variable.
 
