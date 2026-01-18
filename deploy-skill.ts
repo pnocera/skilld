@@ -5,12 +5,12 @@
  * Deploys self-contained executables - no Bun runtime required on target.
  *
  * Usage:
- *   bun deploy-skill.ts [destination] [--target-dir .claude|.agent]
+ *   bun deploy-skill.ts [destination] [--claude]
  *
  * Examples:
  *   bun deploy-skill.ts                    # Interactive prompt for destination
- *   bun deploy-skill.ts /path/to/project   # Deploy to specific project
- *   bun deploy-skill.ts . --target-dir .agent # Deploy to .agent in current dir
+ *   bun deploy-skill.ts /path/to/project   # Deploy to specific project (.agent)
+ *   bun deploy-skill.ts . --claude         # Deploy to .claude in current dir
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
@@ -297,15 +297,8 @@ function parseArgs(): { destination: string | null, targetDir: string } {
     if (arg === '--help' || arg === '-h') {
       printUsage();
       process.exit(0);
-    } else if (arg === '--target-dir' || arg === '-t') {
-      const next = args[i + 1];
-      if (next && (next === '.claude' || next === '.agent')) {
-        targetDir = next;
-        i++;
-      } else {
-        error('Invalid --target-dir. Must be .claude or .agent');
-        process.exit(1);
-      }
+    } else if (arg === '--claude') {
+      targetDir = '.claude';
     } else if (arg && !destination && !arg.startsWith('-')) {
       destination = arg;
     }
@@ -316,7 +309,7 @@ function parseArgs(): { destination: string | null, targetDir: string } {
 
 function printUsage() {
   console.log(`
-Usage: bun deploy-skill.ts [destination]
+Usage: bun deploy-skill.ts [destination] [--claude]
 
 Deploy the adviser skill to a Claude Code project.
 
@@ -326,16 +319,17 @@ Arguments:
   destination    Path to the project directory (default: prompt for input)
 
 Options:
-  -t, --target-dir <dir>  Target directory name: .agent (default) or .claude
-  -h, --help              Show this help message
+  --claude       Deploy to .claude directory (default: .agent)
+  -h, --help     Show this help message
 
 Examples:
   bun deploy-skill.ts                    # Interactive prompt for destination
-  bun deploy-skill.ts /path/to/project   # Deploy to specific project
-  bun deploy-skill.ts . -t .agent        # Deploy to legacy .agent directory
+  bun deploy-skill.ts /path/to/project   # Deploy to .agent in specific project
+  bun deploy-skill.ts . --claude         # Deploy to .claude in current dir
 
 The skill will be deployed to:
-  <destination>/.agent/skills/adviser/
+  <destination>/.agent/skills/adviser/   (default)
+  <destination>/.claude/skills/adviser/  (with --claude)
 
 Deployed files:
   - adviser.exe   (Windows x64 executable)
