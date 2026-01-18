@@ -1,29 +1,47 @@
 {
   "name": "adviser",
   "description": "Critical analysis and quality assurance advisor using Claude Agent SDK",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "entry": "./index.ts",
   "parameters": {
     "taskType": {
       "type": "enum",
-      "values": ["design-review", "plan-analysis", "code-verification"],
+      "values": [
+        "design-review",
+        "plan-analysis",
+        "code-verification"
+      ],
       "required": true,
       "description": "The type of analysis to perform"
     },
-    "mode": {
-      "type": "enum",
-      "values": ["workflow", "human"],
-      "default": "human",
-      "description": "Output mode: 'human' (markdown files) or 'workflow' (JSON)"
+    "input": {
+      "type": "string",
+      "required": true,
+      "description": "Path to input file containing context to analyze"
     },
-    "context": {
+    "output": {
       "type": "string",
       "default": "",
-      "description": "The text or document content to analyze"
+      "description": "Optional explicit output file path (auto-generated if omitted)"
+    },
+    "outputDir": {
+      "type": "string",
+      "default": "",
+      "description": "Optional override for output directory (default: docs/reviews/)"
+    },
+    "mode": {
+      "type": "enum",
+      "values": [
+        "workflow",
+        "human",
+        "aisp"
+      ],
+      "default": "aisp",
+      "description": "Output mode: 'aisp' (default, AI-to-AI), 'human' (markdown), or 'workflow' (JSON)"
     },
     "timeout": {
       "type": "number",
-      "default": 60000,
+      "default": 300000,
       "description": "Execution timeout in milliseconds"
     }
   }

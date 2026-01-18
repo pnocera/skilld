@@ -299,6 +299,9 @@ function parseArgs(): { destination: string | null, targetDir: string } {
       process.exit(0);
     } else if (arg === '--claude') {
       targetDir = '.claude';
+    } else if (arg === '--target-dir' && args[i + 1]) {
+      targetDir = args[i + 1] as string;
+      i++;
     } else if (arg && !destination && !arg.startsWith('-')) {
       destination = arg;
     }

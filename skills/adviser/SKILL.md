@@ -35,7 +35,7 @@ Provides critical analysis with three specialized personas for different types o
 | `--input, -i` | Yes | Path to input file containing context to analyze |
 | `--output, -o` | No | Explicit output file path (auto-generated if omitted) |
 | `--output-dir` | No | Override output directory (default: docs/reviews/) |
-| `--mode, -m` | No | Output mode: `human` (default), `workflow` (JSON), or `aisp` (AISP 5.1) |
+| `--mode, -m` | No | Output mode: `aisp` (default), `human` (markdown), or `workflow` (JSON) |
 | `--timeout, -t` | No | Timeout in ms (default: 300000) |
 
 ### Examples

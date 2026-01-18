@@ -8,7 +8,7 @@ import { join } from 'node:path';
 
 function parseArgs(args: string[]): { taskType: PersonaType; mode: OutputMode; inputFile: string; outputFile?: string; outputDir?: string; timeout: number } {
   let taskType: PersonaType | null = null;
-  let mode: OutputMode = 'human';
+  let mode: OutputMode = 'aisp';  // Default to AISP for AI-to-AI communication
   let inputFile = '';
   let outputFile: string | undefined;
   let outputDir: string | undefined;
