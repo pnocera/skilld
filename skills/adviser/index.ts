@@ -6,24 +6,12 @@ import type { PersonaType, OutputMode } from './types';
 import { which } from 'bun';
 import { join } from 'node:path';
 
-async function readContextFromPath(path: string): Promise<string> {
-  if (path === '-') {
-    // Read from stdin
-    const chunks: Buffer[] = [];
-    for await (const chunk of process.stdin) {
-      chunks.push(chunk);
-    }
-    return Buffer.concat(chunks).toString();
-  }
-  // Read from file - handle both absolute and relative paths
-  const filePath = path.startsWith('/') ? path : join(process.cwd(), path);
-  return await Bun.file(filePath).text();
-}
-
-function parseArgs(args: string[]): { taskType: PersonaType; mode: OutputMode; context: string; timeout: number } {
+function parseArgs(args: string[]): { taskType: PersonaType; mode: OutputMode; inputFile: string; outputFile?: string; outputDir?: string; timeout: number } {
   let taskType: PersonaType | null = null;
   let mode: OutputMode = 'human';
-  let context = '';
+  let inputFile = '';
+  let outputFile: string | undefined;
+  let outputDir: string | undefined;
   let timeout = 300000;
 
   for (let i = 0; i < args.length; i++) {
@@ -57,18 +45,34 @@ function parseArgs(args: string[]): { taskType: PersonaType; mode: OutputMode; c
       continue;
     }
 
-    // Context (last positional or --context / -c)
-    if (arg === '--context' || arg === '-c' || !arg.startsWith('-')) {
-      const ctxArg = arg.startsWith('-') ? args[i + 1] : arg;
-      if (!ctxArg) continue;
-
-      const finalCtxArg = arg.startsWith('-') ? (args[++i] as string) : arg;
-      if (finalCtxArg.startsWith('@')) {
-        // File path: @file or @- for stdin
-        context = finalCtxArg;
-      } else {
-        context = finalCtxArg;
+    // Input file (required)
+    if (arg === '--input' || arg === '-i') {
+      const inputArg = args[i + 1];
+      if (inputArg) {
+        inputFile = inputArg;
+        i++;
       }
+      continue;
+    }
+
+    // Output file (optional)
+    if (arg === '--output' || arg === '-o') {
+      const outputArg = args[i + 1];
+      if (outputArg) {
+        outputFile = outputArg;
+        i++;
+      }
+      continue;
+    }
+
+    // Output directory (optional)
+    if (arg === '--output-dir') {
+      const dirArg = args[i + 1];
+      if (dirArg) {
+        outputDir = dirArg;
+        i++;
+      }
+      continue;
     }
   }
 
@@ -76,7 +80,11 @@ function parseArgs(args: string[]): { taskType: PersonaType; mode: OutputMode; c
     throw new Error('Missing required taskType argument');
   }
 
-  return { taskType: taskType as PersonaType, mode, context, timeout };
+  if (!inputFile) {
+    throw new Error('Missing required --input (-i) argument');
+  }
+
+  return { taskType: taskType as PersonaType, mode, inputFile, outputFile, outputDir, timeout };
 }
 
 async function main() {
@@ -91,44 +99,56 @@ async function main() {
   }
 
   if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
-    console.error('Usage: advise <taskType> [options]');
+    console.error('Usage: advise <taskType> --input <file> [options]');
     console.error('');
     console.error('Arguments:  taskType     Required: design-review, plan-analysis, code-verification');
     console.error('');
-    console.error('Options:  --mode, -m <mode>      Output mode: human (default), workflow (JSON), or aisp (AISP 5.1)');
-    console.error('  --context, -c <text>   Text/document content to analyze');
+    console.error('Options:');
+    console.error('  --input, -i <file>     Required: Path to input file containing context to analyze');
+    console.error('  --output, -o <file>    Optional: Explicit output file path (auto-generated if omitted)');
+    console.error('  --output-dir <dir>     Optional: Override output directory (default: docs/reviews/)');
+    console.error('  --mode, -m <mode>      Output mode: human (default), workflow (JSON), or aisp (AISP 5.1)');
     console.error('  --timeout, -t <ms>     Timeout in milliseconds (default: 300000)');
     console.error('  --help, -h             Show this help message');
     console.error('');
-    console.error('Context Input:  --context <text>       Direct text input');
-    console.error('  --context @file.txt    Read from file');
-    console.error('  --context @-           Read from stdin');
-    console.error('');
-    console.error('Positional context (legacy):  advise <taskType> [mode] <context> [timeout]');
+    console.error('Examples:');
+    console.error('  advise design-review --input design-doc.md');
+    console.error('  advise plan-analysis --input plan.md --output result.json --mode workflow');
+    console.error('  advise code-verification --input src/auth.ts --output-dir ./reports/');
     process.exit(args.length > 0 ? 0 : 1);
   }
 
   let taskType: PersonaType;
   let mode: OutputMode;
-  let context: string;
+  let inputFile: string;
+  let outputFile: string | undefined;
+  let outputDir: string | undefined;
   let timeout: number;
 
   try {
-    ({ taskType, mode, context, timeout } = parseArgs(args));
+    ({ taskType, mode, inputFile, outputFile, outputDir, timeout } = parseArgs(args));
   } catch (e) {
     console.error(`Error: ${e instanceof Error ? e.message : e}`);
     process.exit(1);
   }
 
-  // Read context from file if using @ prefix
-  if (context.startsWith('@')) {
-    const filePath = context.slice(1);
-    try {
-      context = await readContextFromPath(filePath);
-    } catch (e) {
-      console.error(`Error reading context from ${filePath === '-' ? 'stdin' : filePath}: ${e instanceof Error ? e.message : e}`);
-      process.exit(1);
-    }
+  // Resolve input file path
+  const resolvedInputFile = inputFile.startsWith('/') ? inputFile : join(process.cwd(), inputFile);
+
+  // Validate input file exists
+  const inputFileHandle = Bun.file(resolvedInputFile);
+  if (!(await inputFileHandle.exists())) {
+    console.error(`Error: Input file not found: ${resolvedInputFile}`);
+    process.exit(1);
+  }
+
+  // Read context from input file
+  let context: string;
+  try {
+    context = await inputFileHandle.text();
+  } catch (e) {
+    console.error(`Error reading input file ${resolvedInputFile}: ${e instanceof Error ? e.message : e}`);
+    process.exit(1);
   }
 
   // Validation
@@ -139,12 +159,12 @@ async function main() {
   }
 
   if (context.length === 0) {
-    console.error('Context is required for analysis.');
+    console.error('Error: Input file is empty.');
     process.exit(1);
   }
 
   if (context.length > 500000) {
-    console.error('Error: Context too large. Please limit input to 500,000 characters.');
+    console.error('Error: Input file too large. Please limit input to 500,000 characters.');
     process.exit(1);
   }
 
@@ -158,9 +178,9 @@ async function main() {
     const analysisResult = await executeClaude(systemPrompt, context, taskType as PersonaType, timeout);
 
     // Handle Result Output
-    const resultMsg = await handleOutput(analysisResult, mode, taskType as PersonaType);
+    const resultMsg = await handleOutput(analysisResult, mode, taskType as PersonaType, outputFile, outputDir);
 
-    // Print final result
+    // Print output location
     console.log(resultMsg);
 
     process.exit(0);

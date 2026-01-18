@@ -1,6 +1,6 @@
-import type { OutputMode, PersonaType } from './types';
+import type { OutputMode, PersonaType, OutputManifest, OutputAsset } from './types';
 import type { AnalysisResult } from './schemas';
-import { join, resolve } from 'node:path';
+import { join, resolve, dirname, basename } from 'node:path';
 
 /**
  * Resolve output directory for review files.
@@ -37,13 +37,55 @@ export function getOutputDir(): string {
   return join(cwd, 'docs/reviews');
 }
 
+/**
+ * Write manifest file listing created assets
+ */
+async function writeManifest(
+  outputPath: string,
+  type: PersonaType,
+  mode: OutputMode,
+  assets: OutputAsset[]
+): Promise<string> {
+  const manifest: OutputManifest = {
+    status: 'success',
+    taskType: type,
+    mode,
+    assets,
+    timestamp: new Date().toISOString()
+  };
+
+  // Manifest file is named after the main output with .manifest.json suffix
+  const manifestPath = outputPath + '.manifest.json';
+  await Bun.write(manifestPath, JSON.stringify(manifest, null, 2));
+  return manifestPath;
+}
+
 export async function handleOutput(
   result: AnalysisResult,
   mode: OutputMode,
-  type: PersonaType
+  type: PersonaType,
+  outputFile?: string,
+  outputDir?: string
 ): Promise<string> {
+  // Determine output base directory
+  const baseDir = outputDir ? resolve(outputDir) : getOutputDir();
+
   if (mode === 'workflow') {
-    return JSON.stringify(result, null, 2);
+    // Workflow mode: write JSON to file
+    const filename = outputFile || `review-${type}-${Date.now()}.json`;
+    const path = outputFile?.startsWith('/') ? outputFile : join(baseDir, filename);
+
+    const fs = await import('node:fs');
+    const dir = outputFile?.startsWith('/') ? resolve(outputFile, '..') : baseDir;
+    fs.mkdirSync(dir, { recursive: true });
+    await Bun.write(path, JSON.stringify(result, null, 2));
+
+    // Write manifest
+    const manifestPath = await writeManifest(path, type, mode, [
+      { type: 'workflow', format: 'json', path }
+    ]);
+
+    return `[Adviser] Output manifest: ${manifestPath}`;
   }
 
   if (mode === 'aisp') {
@@ -145,21 +187,25 @@ export async function handleOutput(
 `;
 
     // Save AISP document
-    const filename = `review-${type}-${Date.now()}.aisp`;
-    const baseDir = getOutputDir();
-    const path = join(baseDir, filename);
+    const filename = outputFile || `review-${type}-${Date.now()}.aisp`;
+    const path = outputFile?.startsWith('/') ? outputFile : join(baseDir, filename);
 
     const fs = await import('node:fs');
-    fs.mkdirSync(baseDir, { recursive: true });
+    const dir = outputFile?.startsWith('/') ? resolve(outputFile, '..') : baseDir;
+    fs.mkdirSync(dir, { recursive: true });
     await Bun.write(path, aisp);
 
-    return `AISP review saved to: ${path}\n\n${aisp}`;
+    // Write manifest
+    const manifestPath = await writeManifest(path, type, mode, [
+      { type: 'aisp', format: 'aisp', path }
+    ]);
+
+    return `[Adviser] Output manifest: ${manifestPath}`;
   }
 
   // Human mode: Convert to markdown and save
-  const filename = `review-${type}-${Date.now()}.md`;
-  const baseDir = getOutputDir();
-  const path = join(baseDir, filename);
+  const filename = outputFile || `review-${type}-${Date.now()}.md`;
+  const path = outputFile?.startsWith('/') ? outputFile : join(baseDir, filename);
 
   // Build Markdown content
   let markdown = `# ${type.replace(/-/g, ' ').toUpperCase()} Review\n\n`;
@@ -186,9 +232,15 @@ export async function handleOutput(
   }
 
   const fs = await import('node:fs');
-  fs.mkdirSync(baseDir, { recursive: true });
+  const dir = outputFile?.startsWith('/') ? resolve(outputFile, '..') : baseDir;
+  fs.mkdirSync(dir, { recursive: true });
 
   await Bun.write(path, markdown);
 
-  return `Review saved to: ${path}`;
+  // Write manifest
+  const manifestPath = await writeManifest(path, type, mode, [
+    { type: 'review', format: 'md', path }
+  ]);
+
+  return `[Adviser] Output manifest: ${manifestPath}`;
 }
