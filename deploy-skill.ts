@@ -13,7 +13,7 @@
  *   bun deploy-skill.ts . --claude         # Deploy to .claude in current dir
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync, chmodSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 
 // ANSI color codes for output
@@ -212,6 +212,7 @@ async function deploy(destination: string, targetDir: string = '.agent') {
   }
   if (hasLinuxExe) {
     copySync(sourceLinuxExe, join(skillScriptsDir, 'adviser'));
+    chmodSync(join(skillScriptsDir, 'adviser'), 0o755);
     log(`  → scripts/adviser`, 'green');
   }
 
