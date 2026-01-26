@@ -6,13 +6,17 @@ import type { PersonaType, OutputMode } from './types';
 import { which } from 'bun';
 import { join } from 'node:path';
 
+// Constants
+const DEFAULT_TIMEOUT_MS = 1800000; // 30 minutes
+const MAX_INPUT_LENGTH = 500000;
+
 function parseArgs(args: string[]): { taskType: PersonaType; mode: OutputMode; inputFile: string; outputFile?: string; outputDir?: string; timeout: number } {
   let taskType: PersonaType | null = null;
   let mode: OutputMode = 'aisp';  // Default to AISP for AI-to-AI communication
   let inputFile = '';
   let outputFile: string | undefined;
   let outputDir: string | undefined;
-  let timeout = 1800000;  // 30 minutes default
+  let timeout = DEFAULT_TIMEOUT_MS;  // 30 minutes default
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -99,22 +103,24 @@ async function main() {
   }
 
   if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
-    console.error('Usage: advise <taskType> --input <file> [options]');
-    console.error('');
-    console.error('Arguments:  taskType     Required: design-review, plan-analysis, code-verification');
-    console.error('');
-    console.error('Options:');
-    console.error('  --input, -i <file>     Required: Path to input file containing context to analyze');
-    console.error('  --output, -o <file>    Optional: Explicit output file path (auto-generated if omitted)');
-    console.error('  --output-dir <dir>     Optional: Override output directory (default: docs/reviews/)');
-    console.error('  --mode, -m <mode>      Output mode: human (default), workflow (JSON), or aisp (AISP 5.1)');
-    console.error('  --timeout, -t <ms>     Timeout in milliseconds (default: 300000)');
-    console.error('  --help, -h             Show this help message');
-    console.error('');
-    console.error('Examples:');
-    console.error('  advise design-review --input design-doc.md');
-    console.error('  advise plan-analysis --input plan.md --output result.json --mode workflow');
-    console.error('  advise code-verification --input src/auth.ts --output-dir ./reports/');
+    const helpText = `Usage: advise <taskType> --input <file> [options]
+
+Arguments:  taskType     Required: design-review, plan-analysis, code-verification
+
+Options:
+  --input, -i <file>     Required: Path to input file containing context to analyze
+  --output, -o <file>    Optional: Explicit output file path (auto-generated if omitted)
+  --output-dir <dir>     Optional: Override output directory (default: docs/reviews/)
+  --mode, -m <mode>      Output mode: aisp (default), human, or workflow (JSON)
+  --timeout, -t <ms>     Timeout in milliseconds (default: ${DEFAULT_TIMEOUT_MS})
+  --help, -h             Show this help message
+
+Examples:
+  advise design-review --input design-doc.md
+  advise plan-analysis --input plan.md --output result.json --mode workflow
+  advise code-verification --input src/auth.ts --output-dir ./reports/
+`;
+    console.log(helpText);
     process.exit(args.length > 0 ? 0 : 1);
   }
 
@@ -163,8 +169,8 @@ async function main() {
     process.exit(1);
   }
 
-  if (context.length > 500000) {
-    console.error('Error: Input file too large. Please limit input to 500,000 characters.');
+  if (context.length > MAX_INPUT_LENGTH) {
+    console.error(`Error: Input file too large. Please limit input to ${MAX_INPUT_LENGTH.toLocaleString()} characters.`);
     process.exit(1);
   }
 

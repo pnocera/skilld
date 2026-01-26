@@ -1,6 +1,12 @@
 import type { OutputMode, PersonaType, OutputManifest, OutputAsset } from './types';
 import type { AnalysisResult } from './schemas';
-import { join, resolve, dirname, basename } from 'node:path';
+import { existsSync, mkdirSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+
+// Constants
+const MAX_DIR_SEARCH_DEPTH = 10;
+const TRUNCATION_LENGTH_DESCRIPTION = 100;
+const TRUNCATION_LENGTH_RECOMMENDATION = 80;
 
 /**
  * Resolve output directory for review files.
@@ -17,17 +23,12 @@ export function getOutputDir(): string {
   // Find project root (look for package.json)
   let cwd = process.cwd();
   let searchDir = cwd;
-  const maxDepth = 10;
 
-  for (let i = 0; i < maxDepth; i++) {
+  for (let i = 0; i < MAX_DIR_SEARCH_DEPTH; i++) {
     const packageJsonPath = join(searchDir, 'package.json');
-    try {
-      // Check if package.json exists
-      const fs = require('node:fs');
-      if (fs.existsSync(packageJsonPath)) {
-        return join(searchDir, 'docs/reviews');
-      }
-    } catch { }
+    if (existsSync(packageJsonPath)) {
+      return join(searchDir, 'docs/reviews');
+    }
     const parent = join(searchDir, '..');
     if (parent === searchDir) break; // reached filesystem root
     searchDir = parent;
@@ -67,65 +68,76 @@ function generateUniqueId(): string {
   return Math.random().toString(36).substring(2, 6);
 }
 
-export async function handleOutput(
-  result: AnalysisResult,
-  mode: OutputMode,
-  type: PersonaType,
-  outputFile?: string,
-  outputDir?: string
-): Promise<string> {
-  // Determine output base directory
-  const baseDir = outputDir ? resolve(outputDir) : getOutputDir();
+/**
+ * Ensure directory exists, creating it if necessary
+ */
+function ensureDirectory(dir: string): void {
+  mkdirSync(dir, { recursive: true });
+}
 
-  if (mode === 'workflow') {
-    // Workflow mode: write JSON to file
-    const filename = outputFile || `review-${type}-${Date.now()}-${generateUniqueId()}.json`;
-    const path = outputFile?.startsWith('/') ? outputFile : join(baseDir, filename);
+/**
+ * Resolve output path and ensure directory exists
+ */
+function resolveOutputPath(outputFile: string | undefined, baseDir: string, explicitFilename: string): { path: string } {
+  const filename = outputFile ?? explicitFilename;
+  const path = outputFile?.startsWith('/') ? outputFile : join(baseDir, filename);
+  const dir = outputFile?.startsWith('/') ? resolve(outputFile, '..') : baseDir;
+  ensureDirectory(dir);
+  return { path };
+}
 
-    const fs = await import('node:fs');
-    const dir = outputFile?.startsWith('/') ? resolve(outputFile, '..') : baseDir;
-    fs.mkdirSync(dir, { recursive: true });
-    await Bun.write(path, JSON.stringify(result, null, 2));
+/**
+ * Escape JSON string values
+ */
+function escapeJsonString(value: string): string {
+  return value.replace(/"/g, '\\"');
+}
 
-    // Write manifest
-    const manifestPath = await writeManifest(path, type, mode, [
-      { type: 'workflow', format: 'json', path }
-    ]);
+/**
+ * Truncate string to maximum length with ellipsis
+ */
+function truncateString(value: string, maxLength: number): string {
+  return value.length > maxLength ? value.substring(0, maxLength) + '...' : value;
+}
 
-    return `[Adviser] Output manifest: ${manifestPath}`;
-  }
+// === Format Functions ===
 
-  if (mode === 'aisp') {
-    // AISP 5.1 Platinum Specification format
-    const today = new Date().toISOString().split('T')[0];
-    const personaMap: Record<PersonaType, string> = {
-      'design-review': 'architect',
-      'plan-analysis': 'strategist',
-      'code-verification': 'auditor'
-    };
-    const persona = personaMap[type];
+/**
+ * Format output as workflow JSON
+ */
+function formatWorkflow(result: AnalysisResult): string {
+  return JSON.stringify(result, null, 2);
+}
 
-    // Convert severity to AISP tier
-    const severityToTier: Record<string, string> = {
-      'critical': '⊘',
-      'high': '◊⁻',
-      'medium': '◊',
-      'low': '◊⁺'
-    };
+/**
+ * Format output as AISP 5.1 Platinum Specification
+ */
+function formatAisp(result: AnalysisResult, type: PersonaType): string {
+  const today = new Date().toISOString().split('T')[0];
+  const personaMap: Record<PersonaType, string> = {
+    'design-review': 'architect',
+    'plan-analysis': 'strategist',
+    'code-verification': 'auditor'
+  };
+  const persona = personaMap[type];
 
-    // Count issues by severity
-    const issueCounts = result.issues.reduce((acc, issue) => {
-      acc[issue.severity] = (acc[issue.severity] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+  const severityToTier: Record<string, string> = {
+    'critical': '⊘',
+    'high': '◊⁻',
+    'medium': '◊',
+    'low': '◊⁺'
+  };
 
-    // Determine verdict
-    let verdict = 'approve';
-    if ((issueCounts['critical'] || 0) > 0) verdict = 'reject';
-    else if ((issueCounts['high'] || 0) > 2) verdict = 'revise';
+  const issueCounts = result.issues.reduce((acc, issue) => {
+    acc[issue.severity] = (acc[issue.severity] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
 
-    // Build AISP document
-    let aisp = `𝔸1.0.${persona}@${today}
+  let verdict = 'approve';
+  if ((issueCounts['critical'] || 0) > 0) verdict = 'reject';
+  else if ((issueCounts['high'] || 0) > 2) verdict = 'revise';
+
+  let aisp = `𝔸1.0.${persona}@${today}
 γ≔${type.replace(/-/g, '.')}
 ρ≔⟨analysis,issues,suggestions⟩
 ⊢ND∧review.complete
@@ -155,31 +167,33 @@ export async function handleOutput(
 ;; ─── Λ: ANALYSIS ───
 ⟦Λ:Analysis⟧{
   ;; Summary
-  summary≜"${result.summary.replace(/"/g, '\\"').replace(/\n/g, ' ')}"
+  summary≜"${escapeJsonString(result.summary).replace(/\n/g, ' ')}"
 
   ;; Issues (${result.issues.length})
 `;
 
-    for (let i = 0; i < result.issues.length; i++) {
-      const issue = result.issues[i];
-      if (!issue) continue;
-      const tier = severityToTier[issue.severity] || '◊';
-      aisp += `  issue[${i}]≜⟨τ:${tier}, sev:"${issue.severity}", desc:"${issue.description.replace(/"/g, '\\"').substring(0, 100)}..."`;
-      if (issue.location) aisp += `, loc:"${issue.location.replace(/"/g, '\\"')}"`;
-      if (issue.recommendation) aisp += `, rec:"${issue.recommendation.replace(/"/g, '\\"').substring(0, 80)}..."`;
-      aisp += `⟩\n`;
-    }
+  for (let i = 0; i < result.issues.length; i++) {
+    const issue = result.issues[i];
+    if (!issue) continue;
+    const tier = severityToTier[issue.severity] || '◊';
+    const desc = truncateString(escapeJsonString(issue.description), TRUNCATION_LENGTH_DESCRIPTION);
+    const rec = issue.recommendation
+      ? `, rec:"${truncateString(escapeJsonString(issue.recommendation), TRUNCATION_LENGTH_RECOMMENDATION)}"`
+      : '';
+    const loc = issue.location ? `, loc:"${escapeJsonString(issue.location)}"` : '';
+    aisp += `  issue[${i}]≜⟨τ:${tier}, sev:"${issue.severity}", desc:"${desc}"${loc}${rec}⟩\n`;
+  }
 
-    aisp += `
+  aisp += `
   ;; Suggestions (${result.suggestions.length})
 `;
-    for (let i = 0; i < result.suggestions.length; i++) {
-      const suggestion = result.suggestions[i];
-      if (!suggestion) continue;
-      aisp += `  suggest[${i}]≜"${suggestion.replace(/"/g, '\\"').substring(0, 100)}..."\n`;
-    }
+  for (let i = 0; i < result.suggestions.length; i++) {
+    const suggestion = result.suggestions[i];
+    if (!suggestion) continue;
+    aisp += `  suggest[${i}]≜"${truncateString(escapeJsonString(suggestion), TRUNCATION_LENGTH_DESCRIPTION)}"\n`;
+  }
 
-    aisp += `}
+  aisp += `}
 
 ;; ─── Ε: EVIDENCE ───
 ⟦Ε⟧⟨
@@ -193,37 +207,27 @@ export async function handleOutput(
 ⟩
 `;
 
-    // Save AISP document
-    const filename = outputFile || `review-${type}-${Date.now()}-${generateUniqueId()}.aisp`;
-    const path = outputFile?.startsWith('/') ? outputFile : join(baseDir, filename);
+  return aisp;
+}
 
-    const fs = await import('node:fs');
-    const dir = outputFile?.startsWith('/') ? resolve(outputFile, '..') : baseDir;
-    fs.mkdirSync(dir, { recursive: true });
-    await Bun.write(path, aisp);
-
-    // Write manifest
-    const manifestPath = await writeManifest(path, type, mode, [
-      { type: 'aisp', format: 'aisp', path }
-    ]);
-
-    return `[Adviser] Output manifest: ${manifestPath}`;
-  }
-
-  // Human mode: Convert to markdown and save
-  const filename = outputFile || `review-${type}-${Date.now()}-${generateUniqueId()}.md`;
-  const path = outputFile?.startsWith('/') ? outputFile : join(baseDir, filename);
-
-  // Build Markdown content
+/**
+ * Format output as human-readable markdown
+ */
+function formatHuman(result: AnalysisResult, type: PersonaType): string {
   let markdown = `# ${type.replace(/-/g, ' ').toUpperCase()} Review\n\n`;
   markdown += `**Date:** ${new Date(result.timestamp).toISOString()}\n\n`;
   markdown += `## Summary\n\n${result.summary}\n\n`;
 
   if (result.issues.length > 0) {
     markdown += `## Issues (${result.issues.length})\n\n`;
+    const emoji: Record<string, string> = {
+      critical: '🔴',
+      high: '🟠',
+      medium: '🟡',
+      low: '🟢'
+    };
     for (const issue of result.issues) {
-      const emoji = { critical: '🔴', high: '🟠', medium: '🟡', low: '🟢' }[issue.severity];
-      markdown += `### ${emoji} ${issue.severity.toUpperCase()}\n`;
+      markdown += `### ${emoji[issue.severity]} ${issue.severity.toUpperCase()}\n`;
       markdown += `${issue.description}\n`;
       if (issue.location) markdown += `**Location:** ${issue.location}\n`;
       if (issue.recommendation) markdown += `**Recommendation:** ${issue.recommendation}\n`;
@@ -238,15 +242,53 @@ export async function handleOutput(
     }
   }
 
-  const fs = await import('node:fs');
-  const dir = outputFile?.startsWith('/') ? resolve(outputFile, '..') : baseDir;
-  fs.mkdirSync(dir, { recursive: true });
+  return markdown;
+}
 
-  await Bun.write(path, markdown);
+export async function handleOutput(
+  result: AnalysisResult,
+  mode: OutputMode,
+  type: PersonaType,
+  outputFile?: string,
+  outputDir?: string
+): Promise<string> {
+  const baseDir = outputDir ? resolve(outputDir) : getOutputDir();
 
-  // Write manifest
+  // Map mode to format function and file extension
+  let content: string;
+  let extension: string;
+  let assetType: OutputAsset['type'];
+  let assetFormat: OutputAsset['format'];
+
+  switch (mode) {
+    case 'workflow':
+      content = formatWorkflow(result);
+      extension = 'json';
+      assetType = 'workflow';
+      assetFormat = 'json';
+      break;
+    case 'aisp':
+      content = formatAisp(result, type);
+      extension = 'aisp';
+      assetType = 'aisp';
+      assetFormat = 'aisp';
+      break;
+    case 'human':
+    default:
+      content = formatHuman(result, type);
+      extension = 'md';
+      assetType = 'review';
+      assetFormat = 'md';
+      break;
+  }
+
+  const explicitFilename = `review-${type}-${Date.now()}-${generateUniqueId()}.${extension}`;
+  const { path } = resolveOutputPath(outputFile, baseDir, explicitFilename);
+
+  await Bun.write(path, content);
+
   const manifestPath = await writeManifest(path, type, mode, [
-    { type: 'review', format: 'md', path }
+    { type: assetType, format: assetFormat, path }
   ]);
 
   return `[Adviser] Output manifest: ${manifestPath}`;
