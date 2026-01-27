@@ -1,4 +1,4 @@
-import type { OutputMode, PersonaType, OutputManifest, OutputAsset } from './types';
+import type { OutputMode, OutputManifest, OutputAsset } from './types';
 import type { AnalysisResult } from './schemas';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -43,13 +43,11 @@ export function getOutputDir(): string {
  */
 async function writeManifest(
   outputPath: string,
-  type: PersonaType,
   mode: OutputMode,
   assets: OutputAsset[]
 ): Promise<string> {
   const manifest: OutputManifest = {
     status: 'success',
-    taskType: type,
     mode,
     assets,
     timestamp: new Date().toISOString()
@@ -111,15 +109,10 @@ function formatWorkflow(result: AnalysisResult): string {
 
 /**
  * Format output as AISP 5.1 Platinum Specification
+ * Uses generic "adviser" header since we no longer have fixed personas
  */
-function formatAisp(result: AnalysisResult, type: PersonaType): string {
+function formatAisp(result: AnalysisResult): string {
   const today = new Date().toISOString().split('T')[0];
-  const personaMap: Record<PersonaType, string> = {
-    'design-review': 'architect',
-    'plan-analysis': 'strategist',
-    'code-verification': 'auditor'
-  };
-  const persona = personaMap[type];
 
   const severityToTier: Record<string, string> = {
     'critical': '⊘',
@@ -137,8 +130,8 @@ function formatAisp(result: AnalysisResult, type: PersonaType): string {
   if ((issueCounts['critical'] || 0) > 0) verdict = 'reject';
   else if ((issueCounts['high'] || 0) > 2) verdict = 'revise';
 
-  let aisp = `𝔸1.0.${persona}@${today}
-γ≔${type.replace(/-/g, '.')}
+  let aisp = `𝔸1.0.adviser@${today}
+γ≔dynamic.analysis
 ρ≔⟨analysis,issues,suggestions⟩
 ⊢ND∧review.complete
 
@@ -213,8 +206,8 @@ function formatAisp(result: AnalysisResult, type: PersonaType): string {
 /**
  * Format output as human-readable markdown
  */
-function formatHuman(result: AnalysisResult, type: PersonaType): string {
-  let markdown = `# ${type.replace(/-/g, ' ').toUpperCase()} Review\n\n`;
+function formatHuman(result: AnalysisResult): string {
+  let markdown = `# Adviser Review\n\n`;
   markdown += `**Date:** ${new Date(result.timestamp).toISOString()}\n\n`;
   markdown += `## Summary\n\n${result.summary}\n\n`;
 
@@ -238,7 +231,7 @@ function formatHuman(result: AnalysisResult, type: PersonaType): string {
   if (result.suggestions.length > 0) {
     markdown += '## Suggestions\n\n';
     for (const suggestion of result.suggestions) {
-      markdown += `${suggestion}\n`;
+      markdown += `- ${suggestion}\n`;
     }
   }
 
@@ -248,7 +241,6 @@ function formatHuman(result: AnalysisResult, type: PersonaType): string {
 export async function handleOutput(
   result: AnalysisResult,
   mode: OutputMode,
-  type: PersonaType,
   outputFile?: string,
   outputDir?: string
 ): Promise<string> {
@@ -268,26 +260,26 @@ export async function handleOutput(
       assetFormat = 'json';
       break;
     case 'aisp':
-      content = formatAisp(result, type);
+      content = formatAisp(result);
       extension = 'aisp';
       assetType = 'aisp';
       assetFormat = 'aisp';
       break;
     case 'human':
     default:
-      content = formatHuman(result, type);
+      content = formatHuman(result);
       extension = 'md';
       assetType = 'review';
       assetFormat = 'md';
       break;
   }
 
-  const explicitFilename = `review-${type}-${Date.now()}-${generateUniqueId()}.${extension}`;
+  const explicitFilename = `review-${Date.now()}-${generateUniqueId()}.${extension}`;
   const { path } = resolveOutputPath(outputFile, baseDir, explicitFilename);
 
   await Bun.write(path, content);
 
-  const manifestPath = await writeManifest(path, type, mode, [
+  const manifestPath = await writeManifest(path, mode, [
     { type: assetType, format: assetFormat, path }
   ]);
 

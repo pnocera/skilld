@@ -1,0 +1,13 @@
+{
+  "status": "success",
+  "taskType": "design-review",
+  "mode": "aisp",
+  "assets": [
+    {
+      "type": "aisp",
+      "format": "aisp",
+      "path": "/home/pierre/Tools/skilld/docs/reviews/review-design-review-1769531577865-0d4v.aisp"
+    }
+  ],
+  "timestamp": "2026-01-27T16:32:57.866Z"
+}

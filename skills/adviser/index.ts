@@ -1,8 +1,7 @@
 #!/usr/bin/env bun
-import { getPersonaPrompt } from './motifs';
 import { executeClaude } from './runtimes';
 import { handleOutput } from './output';
-import type { PersonaType, OutputMode } from './types';
+import type { OutputMode } from './types';
 import { which } from 'bun';
 import { join } from 'node:path';
 
@@ -10,22 +9,32 @@ import { join } from 'node:path';
 const DEFAULT_TIMEOUT_MS = 1800000; // 30 minutes
 const MAX_INPUT_LENGTH = 500000;
 
-function parseArgs(args: string[]): { taskType: PersonaType; mode: OutputMode; inputFile: string; outputFile?: string; outputDir?: string; timeout: number } {
-  let taskType: PersonaType | null = null;
+function parseArgs(args: string[]): {
+  promptFile: string;
+  mode: OutputMode;
+  inputFile: string;
+  outputFile?: string;
+  outputDir?: string;
+  timeout: number
+} {
+  let promptFile = '';
   let mode: OutputMode = 'aisp';  // Default to AISP for AI-to-AI communication
   let inputFile = '';
   let outputFile: string | undefined;
   let outputDir: string | undefined;
-  let timeout = DEFAULT_TIMEOUT_MS;  // 30 minutes default
+  let timeout = DEFAULT_TIMEOUT_MS;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
+    if (!arg) continue;
 
-    if (!arg) continue; // Skip undefined args
-
-    // Task type (first positional or first without flag)
-    if (!taskType && !arg.startsWith('-')) {
-      taskType = arg as PersonaType;
+    // Prompt file (required - replaces taskType)
+    if (arg === '--prompt-file' || arg === '-p') {
+      const promptArg = args[i + 1];
+      if (promptArg) {
+        promptFile = promptArg;
+        i++;
+      }
       continue;
     }
 
@@ -80,15 +89,15 @@ function parseArgs(args: string[]): { taskType: PersonaType; mode: OutputMode; i
     }
   }
 
-  if (!taskType) {
-    throw new Error('Missing required taskType argument');
+  if (!promptFile) {
+    throw new Error('Missing required --prompt-file (-p) argument');
   }
 
   if (!inputFile) {
     throw new Error('Missing required --input (-i) argument');
   }
 
-  return { taskType: taskType as PersonaType, mode, inputFile, outputFile, outputDir, timeout };
+  return { promptFile, mode, inputFile, outputFile, outputDir, timeout };
 }
 
 async function main() {
@@ -97,18 +106,19 @@ async function main() {
   // 0. Runtime check
   const cliPath = await which('claude');
   if (!cliPath) {
-    console.error('[Adviser] Error: Claude Code CLI (claude) not found. This is required by the Agent SDK.');
+    console.error('[Adviser] Error: Claude Code CLI (claude) not found.');
     console.error('Please install it: curl -fsSL https://claude.ai/install.sh | bash');
     process.exit(1);
   }
 
   if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
-    const helpText = `Usage: advise <taskType> --input <file> [options]
+    const helpText = `Usage: adviser --prompt-file <path> --input <file> [options]
 
-Arguments:  taskType     Required: design-review, plan-analysis, code-verification
+Required:
+  --prompt-file, -p <file>  Path to system prompt file (composed by calling agent)
+  --input, -i <file>        Path to input file containing content to analyze
 
 Options:
-  --input, -i <file>     Required: Path to input file containing context to analyze
   --output, -o <file>    Optional: Explicit output file path (auto-generated if omitted)
   --output-dir <dir>     Optional: Override output directory (default: docs/reviews/)
   --mode, -m <mode>      Output mode: aisp (default), human, or workflow (JSON)
@@ -116,15 +126,14 @@ Options:
   --help, -h             Show this help message
 
 Examples:
-  advise design-review --input design-doc.md
-  advise plan-analysis --input plan.md --output result.json --mode workflow
-  advise code-verification --input src/auth.ts --output-dir ./reports/
+  adviser --prompt-file ./tmp/prompt.md --input design-doc.md
+  adviser -p ./tmp/prompt.md -i plan.md --output result.json --mode workflow
 `;
     console.log(helpText);
     process.exit(args.length > 0 ? 0 : 1);
   }
 
-  let taskType: PersonaType;
+  let promptFile: string;
   let mode: OutputMode;
   let inputFile: string;
   let outputFile: string | undefined;
@@ -132,14 +141,36 @@ Examples:
   let timeout: number;
 
   try {
-    ({ taskType, mode, inputFile, outputFile, outputDir, timeout } = parseArgs(args));
+    ({ promptFile, mode, inputFile, outputFile, outputDir, timeout } = parseArgs(args));
   } catch (e) {
     console.error(`Error: ${e instanceof Error ? e.message : e}`);
     process.exit(1);
   }
 
-  // Resolve input file path
+  // Resolve file paths
+  const resolvedPromptFile = promptFile.startsWith('/') ? promptFile : join(process.cwd(), promptFile);
   const resolvedInputFile = inputFile.startsWith('/') ? inputFile : join(process.cwd(), inputFile);
+
+  // Validate prompt file exists
+  const promptFileHandle = Bun.file(resolvedPromptFile);
+  if (!(await promptFileHandle.exists())) {
+    console.error(`Error: Prompt file not found: ${resolvedPromptFile}`);
+    process.exit(1);
+  }
+
+  // Read system prompt from file
+  let systemPrompt: string;
+  try {
+    systemPrompt = await promptFileHandle.text();
+  } catch (e) {
+    console.error(`Error reading prompt file ${resolvedPromptFile}: ${e instanceof Error ? e.message : e}`);
+    process.exit(1);
+  }
+
+  if (systemPrompt.trim().length === 0) {
+    console.error('Error: Prompt file is empty.');
+    process.exit(1);
+  }
 
   // Validate input file exists
   const inputFileHandle = Bun.file(resolvedInputFile);
@@ -157,13 +188,6 @@ Examples:
     process.exit(1);
   }
 
-  // Validation
-  const validTaskTypes: PersonaType[] = ['design-review', 'plan-analysis', 'code-verification'];
-  if (!validTaskTypes.includes(taskType as PersonaType)) {
-    console.error(`Invalid task type: ${taskType}. Must be one of: ${validTaskTypes.join(', ')}`);
-    process.exit(1);
-  }
-
   if (context.length === 0) {
     console.error('Error: Input file is empty.');
     process.exit(1);
@@ -175,16 +199,13 @@ Examples:
   }
 
   try {
-    console.log(`[Adviser] Starting ${taskType} in ${mode} mode...`);
+    console.log(`[Adviser] Starting analysis in ${mode} mode...`);
 
-    // Load system prompt (inject AISP spec if aisp mode)
-    const systemPrompt = getPersonaPrompt(taskType as PersonaType, mode);
-
-    // Execute via Agent SDK
-    const analysisResult = await executeClaude(systemPrompt, context, taskType as PersonaType, timeout);
+    // Execute via Agent SDK (prompt comes from file, not persona lookup)
+    const analysisResult = await executeClaude(systemPrompt, context, timeout);
 
     // Handle Result Output
-    const resultMsg = await handleOutput(analysisResult, mode, taskType as PersonaType, outputFile, outputDir);
+    const resultMsg = await handleOutput(analysisResult, mode, outputFile, outputDir);
 
     // Print output location
     console.log(resultMsg);

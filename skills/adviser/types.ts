@@ -1,9 +1,4 @@
 /**
- * The persona determines the system prompt and analysis focus
- */
-export type PersonaType = 'design-review' | 'plan-analysis' | 'code-verification';
-
-/**
  * Output mode determines how the result is delivered
  * - 'workflow': JSON structured output for pipeline integration
  * - 'human': Markdown file saved to docs/reviews/
@@ -15,6 +10,8 @@ export type OutputMode = 'workflow' | 'human' | 'aisp';
  * File-based input/output configuration
  */
 export interface FileAssets {
+  /** Path to prompt file containing system prompt */
+  promptFile: string;
   /** Path to input file containing context to analyze */
   inputFile: string;
   /** Path where output file should be written (auto-generated if omitted) */
@@ -27,7 +24,6 @@ export interface FileAssets {
  * Configuration options for the advisor
  */
 export interface AdvisorOptions {
-  taskType: PersonaType;
   mode?: OutputMode;
   files: FileAssets;
   timeout?: number;
@@ -57,7 +53,6 @@ export interface OutputAsset {
  */
 export interface OutputManifest {
   status: 'success' | 'error';
-  taskType: PersonaType;
   mode: OutputMode;
   assets: OutputAsset[];
   timestamp: string;

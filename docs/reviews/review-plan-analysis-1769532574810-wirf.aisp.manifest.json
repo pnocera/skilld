@@ -1,0 +1,13 @@
+{
+  "status": "success",
+  "taskType": "plan-analysis",
+  "mode": "aisp",
+  "assets": [
+    {
+      "type": "aisp",
+      "format": "aisp",
+      "path": "/home/pierre/Tools/skilld/docs/reviews/review-plan-analysis-1769532574810-wirf.aisp"
+    }
+  ],
+  "timestamp": "2026-01-27T16:49:34.811Z"
+}

@@ -13,5 +13,4 @@ export const AnalysisSchema = z.object({
 
 export type AnalysisResult = z.infer<typeof AnalysisSchema> & {
   timestamp: string;
-  persona: string;
 };

@@ -1,0 +1,60 @@
+𝔸1.0.strategist@2026-01-27
+γ≔plan.analysis
+ρ≔⟨analysis,issues,suggestions⟩
+⊢ND∧review.complete
+
+;; ─── Ω: META ───
+⟦Ω:Meta⟧{
+  ∀D: Ambig(D) < 0.02
+  ⊢ review.complete
+  timestamp≜"2026-01-27T16:49:34.810Z"
+}
+
+;; ─── Σ: TYPES ───
+⟦Σ:Types⟧{
+  Issue ≜ ⟨severity: {critical,high,medium,low}, desc: 𝕊, loc?: 𝕊, rec?: 𝕊⟩
+  Verdict ≜ {approve, revise, reject}
+  Counts ≜ ⟨critical: 5, high: 3, medium: 0, low: 0⟩
+}
+
+;; ─── Γ: RULES ───
+⟦Γ:Rules⟧{
+  issues.critical > 0 ⇒ Verdict(reject)
+  issues.high > 2 ⇒ Verdict(revise)
+  _ ⇒ Verdict(approve)
+  ⊢ Verdict(reject)
+}
+
+;; ─── Λ: ANALYSIS ───
+⟦Λ:Analysis⟧{
+  ;; Summary
+  summary≜"This plan transforms the adviser from static task-type mode to dynamic protocol-driven architecture through three phases (simplify tool → update docs → update workflows) using TDD methodology. Critical issues exist: Phase 2 omits creating the protocol files themselves, multiple workflow references remain inconsistent, test coverage lacks protocol discovery verification, invalid adviser review commands use removed task types, and the cleanup strategy for transient files is undefined. Five critical and three high issues must be addressed."
+
+  ;; Issues (8)
+  issue[0]≜⟨τ:⊘, sev:"critical", desc:"Phase 2.1 updates SKILL.md to reference protocol discovery from protocols/*.aisp, but no task exists...", loc:"Phase 2 (after Task 2.1)", rec:"Add Task 2.2 'Create Initial Protocol Files' that transforms existing persona pr..."⟩
+  issue[1]≜⟨τ:⊘, sev:"critical", desc:"The plan instructs to update workflows to replace adviser <task-type> with dynamic discovery, but do...", loc:"Tasks 3.1-3.4", rec:"Before Phase 3.1, add a discovery task: Use Grep tool to find all occurrences of..."⟩
+  issue[2]≜⟨τ:⊘, sev:"critical", desc:"Both checkpoints use 'adviser plan-analysis --input ...' command, but plan-analysis is a task-type b...", loc:"Phase 1 checkpoint and Phase 3 checkpoint", rec:"Define correct checkpoint commands: Phase 1 checkpoint: Verify tool changes work..."⟩
+  issue[3]≜⟨τ:⊘, sev:"critical", desc:"Task 3.1 instructs to write ./tmp/adviser-prompt-<uuid8>.md and ./tmp/design-complete-<uuid8>.md but...", loc:"Throughout Phase 3 workflows", rec:"Add Task 3.5 'Define Cleanup Strategy' that creates utils/tmp-cleaner.ts with fu..."⟩
+  issue[4]≜⟨τ:⊘, sev:"critical", desc:"New tests only verify executeClaude with custom prompts. No tests verify protocol file discovery, pa...", loc:"Task 1.7", rec:"Extend Task 1.7 to add test suite protocol-discovery.test.ts: Test parsing AISP ..."⟩
+  issue[5]≜⟨τ:◊⁻, sev:"high", desc:"Plan provides example 'Protocols to Apply' section with placeholder structure but specifies nothing ...", loc:"Phase 2.1 (SKILL.md content)", rec:"Add to Task 2.1 SKILL.md content: 'Conflict Resolution Guidelines' section with ..."⟩
+  issue[6]≜⟨τ:◊⁻, sev:"high", desc:"Plans instruct to 'Parse AISP output for verdict/issues' but provide no specification. Is parsing re...", loc:"Phase 2.1 and Phase 3 (Step 4 of usage pattern)", rec:"Add Task 2.3 'AISP Output Parser' that creates skills/adviser/parser.ts with: pa..."⟩
+  issue[7]≜⟨τ:◊⁻, sev:"high", desc:"Test runs binary with minimal files but doesn't verify key behaviors: (1) Binary validates prompt fi...", loc:"Task 1.8, Step 2", rec:"Expand Task 1.8 Step 2 test matrix with three tests: (1) Missing prompt file (sh..."⟩
+
+  ;; Suggestions (5)
+  suggest[0]≜"Add Protocol Definition Task Before Phase 2 - The architecture depends on protocol files existing be..."
+  suggest[1]≜"Backwards Compatibility Transition Plan - Consider keeping a --task-type flag in Phase 1 that just m..."
+  suggest[2]≜"Protocol Versioning Strategy - AISP files need version headers for evolution. Define pattern: δ≜prot..."
+  suggest[3]≜"Add Integration Test for Full Workflow - After Phase 3, create an E2E test that: (1) Creates tempora..."
+  suggest[4]≜"Documentation for Protocol Authors - Add protocols/README.md with template for new protocols, checkl..."
+}
+
+;; ─── Ε: EVIDENCE ───
+⟦Ε⟧⟨
+  δ≜0.85
+  φ≜-30
+  τ≜⊘
+  ⊢ND
+  ⊢Verdict(reject)
+  ⊢issues.total=8
+  ⊢suggestions.total=5
+⟩
