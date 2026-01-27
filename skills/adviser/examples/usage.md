@@ -1,43 +1,104 @@
-# Adviser Examples
+# Adviser Usage Examples
 
-## Quick Copy-Paste
+## Basic Usage
 
+### Design Review
 ```bash
-# Design review
-adviser design-review --input docs/design/my-design.md --mode aisp
+# 1. Agent composes prompt with design-relevant protocols (solid.aisp, flow.aisp)
+# 2. Execute:
+adviser --prompt-file ./tmp/adviser-prompt-design-1735123456.md \
+        --input docs/design/my-design.md \
+        --mode aisp
+```
 
-# Plan analysis  
-adviser plan-analysis --input docs/plan/my-plan.md --mode aisp
+### Plan Analysis
+```bash
+# 1. Agent composes prompt with planning protocols (flow.aisp, yagni.aisp)
+# 2. Execute:
+adviser --prompt-file ./tmp/adviser-prompt-plan-1735123456.md \
+        --input docs/plan/my-plan.md \
+        --mode aisp
+```
 
-# Code verification
-adviser code-verification --input src/feature.ts --mode aisp
+### Code Verification
+```bash
+# 1. Agent composes prompt with verification protocols (solid.aisp, triangulation.aisp)
+# 2. Execute:
+adviser --prompt-file ./tmp/adviser-prompt-verify-1735123456.md \
+        --input src/feature.ts \
+        --mode aisp
 ```
 
 ## Output Modes
 
+### AISP Mode (Default - AI-to-AI)
 ```bash
-# AISP (AI-to-AI communication)
-adviser design-review --input design.md --mode aisp
-
-# JSON (pipeline integration)
-adviser design-review --input design.md --mode workflow
-
-# Human readable (saved to docs/reviews/)
-adviser design-review --input design.md --mode human
+adviser -p ./tmp/prompt.md -i design.md --mode aisp
+# Output: docs/reviews/review-1735123456-a1b2.aisp
 ```
 
-## Manifest Output
-
-All modes output a manifest file for programmatic access:
+### Workflow Mode (JSON for pipelines)
+```bash
+adviser -p ./tmp/prompt.md -i design.md --mode workflow
+# Output: docs/reviews/review-1735123456-a1b2.json
 ```
-[Adviser] Output manifest: /path/to/review.aisp.manifest.json
+
+### Human Mode (Markdown for reading)
+```bash
+adviser -p ./tmp/prompt.md -i design.md --mode human
+# Output: docs/reviews/review-1735123456-a1b2.md
 ```
 
-Read the manifest to find created assets:
+## Custom Output Location
+
+```bash
+# Explicit output file
+adviser -p ./tmp/prompt.md -i design.md -o ./reports/my-review.aisp
+
+# Custom output directory
+adviser -p ./tmp/prompt.md -i design.md --output-dir ./reports/
+```
+
+## Agent Prompt Composition Pattern
+
+```markdown
+# Example: Design Review Prompt
+
+## Role & Objective
+You are an expert software architect...
+
+## Activity Context
+- Activity: Design review for auth system
+- Focus: Security, extensibility
+
+## Protocols to Apply
+
+### Protocol: SOLID
+<protocol>
+𝔸5.1.solid-codegen@2026-01-18
+γ≔software.architecture.solid.principles
+...full protocol content...
+</protocol>
+
+## Output Requirements
+Return JSON with summary, issues, suggestions...
+```
+
+## Parsing AISP Output
+
+The manifest JSON contains the output path:
 ```json
 {
   "status": "success",
-  "assets": [{ "type": "aisp", "format": "aisp", "path": "/path/to/review.aisp" }]
+  "mode": "aisp",
+  "assets": [{"type": "aisp", "format": "aisp", "path": "/path/to/review.aisp"}],
+  "timestamp": "2026-01-27T12:00:00.000Z"
 }
 ```
 
+Look for verdict in the AISP file:
+```
+⊢Verdict(approve)  ;; Good to proceed
+⊢Verdict(revise)   ;; Address issues first
+⊢Verdict(reject)   ;; Significant rework needed
+```

@@ -1,129 +1,153 @@
 ---
 name: adviser
-description: Critical analysis and quality assurance for design documents, implementation plans, and code verification. Use when reviewing designs, plans, or checking code quality.
+description: Protocol-driven analysis executor. The consuming agent discovers relevant protocols, composes a prompt, and calls this tool.
 ---
 
 # Adviser Skill
 
-Provides critical analysis with three specialized personas for different types of code work.
-
-## When to Use This Skill
-
-- **Design Review** (`design-review`): Analyzing design documentation for edge cases, gaps, and concerns
-- **Plan Analysis** (`plan-analysis`): Reviewing implementation plans for correctness and sequencing
-- **Code Verification** (`code-verification`): Cross-referencing code against design/plan for accuracy
-
-## Protocol Foundation
-
-The adviser skill is **formalized in AISP protocols** that define the rules, personas, and verdict logic:
-
-| Task Type | Governing Protocols | Key Formalizations |
-|-----------|---------------------|-------------------|
-| `design-review` | `{{AGENT_DIR}}/protocols/flow.aisp`, `{{AGENT_DIR}}/protocols/solid.aisp` | Architect persona, SOLID validation |
-| `plan-analysis` | `{{AGENT_DIR}}/protocols/flow.aisp`, `{{AGENT_DIR}}/protocols/yagni.aisp` | Strategist persona, task necessity |
-| `code-verification` | `{{AGENT_DIR}}/protocols/solid.aisp`, `{{AGENT_DIR}}/protocols/triangulation.aisp` | Auditor persona, multi-witness confidence |
-
-**Verdict Logic** (from `{{AGENT_DIR}}/protocols/flow.aisp`):
-```
-Verdict_From_Critical≜∀a:critical_count(a)>0 ⇒ verdict(a)≡reject
-Verdict_From_High≜∀a:high_count(a)>2 ⇒ verdict(a)≡revise
-Verdict_Approve≜∀a:critical_count(a)=0 ∧ high_count(a)=0 ⇒ verdict(a)≡approve
-```
-
-**To understand adviser output**, load relevant protocols or use `/protocol-loader` workflow.
+A protocol-driven analysis executor. The consuming agent discovers relevant AISP protocols from `protocols/`, composes a prompt, and calls this tool to execute analysis.
 
 ## How to Use
 
-### Windows
+### Step 1: Discover Protocols
 
-```cmd
-{{ADVISER_EXE}} <taskType> --input <file> [options]
+Scan `protocols/*.aisp` and read headers to find relevant protocols:
+
+```aisp
+𝔸<version>.<name>@<date>
+γ≔<domain.path>        ;; Domain (e.g., software.architecture)
+ρ≔⟨tag1,tag2,...⟩      ;; Tags for matching
+⊢<claims>              ;; Formal claims
 ```
 
-### Linux
+**Match protocols to your activity context using semantic reasoning:**
+
+- **Domain matching**: Activity "code architecture review" → `γ≔software.architecture.*`
+- **Tag intersection**: Activity mentions "dependencies" → protocols with `DIP` or `deps` tags
+- **Claim compatibility**: Activity requires validation → protocols claiming `∧verification`
+
+### Step 2: Compose Prompt
+
+Write a prompt file to `./tmp/adviser-prompt-<activity>-<timestamp>.md` containing:
+
+1. **Role & Objective** - Prime the LLM for the analysis task
+2. **Activity Context** - Describe what you're analyzing and why
+3. **Protocols** - Full content of selected protocols wrapped in `<protocol>` tags
+4. **Output Requirements** - AISP 5.1 format requirements
+
+**Example structure:**
+
+```markdown
+# Dynamic Adviser Prompt
+
+## Role & Objective
+You are an expert adviser analyzing the provided input. Apply the protocols 
+below rigorously to identify issues, gaps, and recommendations.
+
+## Activity Context
+- Activity: Design review for authentication system refactor
+- Focus areas: Security, extensibility, error handling
+- Expected output: AISP verdict with categorized issues
+
+## Protocols to Apply
+
+### Protocol: SOLID Principles
+<protocol>
+[Full content of solid.aisp]
+</protocol>
+
+### Protocol: Adviser Flow
+<protocol>
+[Full content of flow.aisp]
+</protocol>
+
+## Output Requirements
+Respond in AISP 5.1 format. Your response MUST:
+1. Start with header: 𝔸1.0.adviser@YYYY-MM-DD
+2. Include required blocks: ⟦Ω⟧, ⟦Σ⟧, ⟦Γ⟧, ⟦Λ⟧, ⟦Ε⟧
+3. Categorize issues by severity: ⊘ (critical), ◊⁻ (high), ◊ (medium), ◊⁺ (low)
+4. Conclude with verdict: ⊢Verdict(approve|revise|reject)
+
+Return a JSON object with:
+- summary: Brief overview of findings
+- issues: Array of {severity, description, location?, recommendation?}
+- suggestions: Array of improvement recommendations
+```
+
+**Important:** Keep generated prompts in `./tmp/` for analysis and SKILL.md improvement.
+
+### Step 3: Execute
 
 ```bash
-{{ADVISER_BIN}} <taskType> --input <file> [options]
+adviser --prompt-file ./tmp/adviser-prompt-<activity>-<timestamp>.md \
+        --input <file-to-analyze> \
+        --mode aisp
 ```
 
-### Parameters
+### Step 4: Parse Output
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `taskType` | Yes | One of: `design-review`, `plan-analysis`, `code-verification` |
-| `--input, -i` | Yes | Path to input file containing context to analyze |
-| `--output, -o` | No | Explicit output file path (auto-generated if omitted) |
-| `--output-dir` | No | Override output directory (default: docs/reviews/) |
-| `--mode, -m` | No | Output mode: `aisp` (default), `human` (markdown), or `workflow` (JSON) |
-| `--timeout, -t` | No | Timeout in ms (default: 1800000 / 30 min) |
-
-### Examples
-
-```bash
-# Design review from file
-{{ADVISER_BIN}} design-review --input design-doc.md
-
-# Plan analysis with explicit JSON output
-{{ADVISER_BIN}} plan-analysis --input plan.md --output result.json --mode workflow
-
-# Code verification with custom output directory
-{{ADVISER_BIN}} code-verification --input src/auth.ts --output-dir ./reports/
-
-# AISP mode with explicit output file
-{{ADVISER_BIN}} plan-analysis --input plan.md --output analysis.aisp --mode aisp
+Read the manifest from stdout to find the `.aisp` output file:
+```
+[Adviser] Output manifest: /path/to/review.aisp.manifest.json
 ```
 
-## Output Formats
+Parse the AISP file for:
+- `⊢Verdict(approve|revise|reject)` — Final verdict
+- Issue counts in `⟦Σ:Types⟧` block
+- Individual issues in `⟦Λ:Analysis⟧` block
 
-All output is written to files (no stdout output except status messages).
+## Command Reference
 
-**Human mode** (`human`):
-- Markdown file saved to output directory with detailed analysis
-- Includes summary, severity-colored issues, and suggestions
-
-**Workflow mode** (`workflow`):
-- JSON file for pipeline integration
-- Schema: `{ summary, issues: [{ severity, description, location?, recommendation? }], suggestions: [] }`
-
-**AISP mode** (`aisp`):
-- AISP 5.1 structured output for AI-to-AI communication
-- See `aisp-quick-ref.md` in this folder for interpreting output
-
-## Output File Naming
-
-When `--output` is not specified, files are auto-generated with the pattern:
-- `review-<taskType>-<timestamp>-<id>.md` (human mode)
-- `review-<taskType>-<timestamp>-<id>.json` (workflow mode)
-- `review-<taskType>-<timestamp>-<id>.aisp` (aisp mode)
-
-The 4-character `<id>` ensures unique filenames even when running multiple advisers in parallel.
-
-Files are saved to `docs/reviews/` by default, or the directory specified by `--output-dir` or `ADVISED_OUTPUT_DIR` environment variable.
-
-## Manifest Files
-
-Every adviser run creates a `.manifest.json` file alongside the main output. This manifest provides structured metadata about created assets for programmatic access:
-
-```json
-{
-  "status": "success",
-  "taskType": "plan-analysis",
-  "mode": "workflow",
-  "assets": [
-    { "type": "workflow", "format": "json", "path": "/path/to/review.json" }
-  ],
-  "timestamp": "2026-01-18T11:12:00Z"
-}
+```
+adviser --prompt-file <path> --input <file> [options]
 ```
 
-The manifest file is named `<output-file>.manifest.json` (e.g., `review-plan-analysis-1737194000.json.manifest.json`).
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `--prompt-file, -p` | Yes | Path to composed system prompt |
+| `--input, -i` | Yes | Path to content to analyze |
+| `--mode, -m` | No | Output: aisp (default), human, workflow |
+| `--output, -o` | No | Explicit output path |
+| `--output-dir` | No | Output directory (default: docs/reviews/) |
+| `--timeout, -t` | No | Timeout in ms (default: 1,800,000) |
 
-## Edge Cases
+## Protocol Selection Examples
 
-| Scenario | Behavior |
-|----------|----------|
-| Input file not found | Error: "Input file not found: <path>" |
-| Input file empty | Error: "Input file is empty" |
-| Input file > 500KB | Error: "Input file too large" |
-| Claude CLI not found | Error with installation instructions |
-| Timeout exceeded | Aborts with timeout error |
+| Activity | Recommended Protocols | Rationale |
+|----------|----------------------|-----------|
+| Architecture review | `solid.aisp`, `flow.aisp` | SOLID principles + workflow structure |
+| Implementation planning | `flow.aisp`, `yagni.aisp` | Task flow + necessity validation |
+| Code verification | `solid.aisp`, `triangulation.aisp` | Code quality + multi-pass verification |
+| Cost analysis | `yagni.aisp` | Focus on necessity and efficiency |
+
+## AISP Output Reference
+
+See `motifs/aisp-quick-ref.md` for interpreting AISP output:
+
+| Symbol | Meaning |
+|--------|---------|
+| `⊢Verdict(approve)` | Pass - proceed with work |
+| `⊢Verdict(revise)` | Needs changes - address high issues |
+| `⊢Verdict(reject)` | Critical issues - significant rework needed |
+| `⊘` | Critical severity |
+| `◊⁻` | High severity |
+| `◊` | Medium severity |
+| `◊⁺` | Low severity |
+
+## Error Handling
+
+| Error | Cause | Resolution |
+|-------|-------|------------|
+| "Missing required --prompt-file" | No prompt provided | Create prompt file per Step 2 |
+| "Prompt file not found" | Invalid path | Check path exists |
+| "Prompt file is empty" | Empty file | Add content per Step 2 template |
+| "Input file not found" | Invalid input path | Verify input file exists |
+
+## Prompt Preservation
+
+Generated prompts should be **preserved** for analysis:
+
+- Helps improve SKILL.md instructions
+- Reveals agent reasoning patterns
+- Identifies protocol selection heuristics that work well
+- Use naming: `adviser-prompt-<activity>-<timestamp>.md`
