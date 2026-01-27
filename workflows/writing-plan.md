@@ -15,15 +15,13 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 **Save plans to:** `docs/plans/YYYY-MM-DD-<feature-name>.md`
 
-## Adviser Loop Configuration
+## Adviser Configuration
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `MAX_ITERATIONS` | 3 | Maximum plan-analysis loops before handoff |
+| Setting | Value | Description |
+|---------|-------|-------------|
 | `CHECKPOINT_TYPE` | plan-analysis | Adviser task to run |
 | `OUTPUT_MODE` | aisp | Use AISP 5.1 format for AI-to-AI communication |
-| `ON_MAX_REACHED` | continue | Document concerns and proceed |
-| `SUCCESS_CRITERIA` | `⊢Verdict(approve)` or no `⊘`/`◊⁻` issues | When plan is approved |
+| `WHEN_TO_RUN` | once per phase | Single validation per major phase |
 
 **AISP Awareness**: Before interpreting adviser output, reference `.agent/skills/adviser/aisp-quick-ref.md`. Key symbols:
 - `⊢Verdict(approve|revise|reject)` — Final verdict
@@ -31,7 +29,32 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 - `⟦Γ:Rules⟧` — Logic block with decision rules
 - `⟦Ε⟧` — Evidence block with metrics (δ=density, φ=score, τ=tier)
 
-Override defaults by announcing: "This plan: MAX_ITERATIONS=5"
+## Protocol References
+
+**Load these protocols** for plan writing guidance (use `/protocol-loader` for efficient loading):
+
+| Protocol | Purpose in Plan Writing |
+|----------|-------------------------|
+| `{{AGENT_DIR}}/protocols/yagni.aisp` | Validate task necessity: `Required(w)≜∃e∈Evidence: e.strength > 0.8` |
+| `{{AGENT_DIR}}/protocols/flow.aisp` | Task granularity: `bite=2..5min`, `write_plan≜λ(design).{design_to_tasks}` |
+| `{{AGENT_DIR}}/protocols/solid.aisp` | Structure tasks by responsibility: one component = one task set |
+
+**Key Protocol Rules for Plan Writing:**
+```
+;; From yagni.aisp - Task necessity check
+∀w: w∈SpeculativeFeature ⇒ Action(Developer, w) ≡ Reject
+∀w: (w∈UserFeature ∧ Required(w)) ⇒ Action(Developer, w) ≡ Implement
+
+;; From flow.aisp - Task structure
+write_plan≜λ(design).{
+  tasks≜design_to_tasks(design,bite=2..5min)
+  ∀t∈tasks:(has_exact_path(t) ∧ has_complete_code(t) ∧ has_verification(t))
+  ⟨approved, iterations⟩≜adviser_loop(plan_analysis_config,tasks)
+}
+
+;; Quick reference for task granularity
+Workflows≜{write_plan≔⟨loop≔plan-analysis,bite≔2-5 min,iter≔3⟩}
+```
 
 ## Bite-Sized Task Granularity
 
@@ -103,27 +126,23 @@ git commit -m "feat: add specific feature"
 ```
 ```
 
-## Pre-Handoff Adviser Loop
+## Adviser Review (Once Per Phase)
 
-Before offering execution choice, validate the complete plan:
+Run adviser once after completing each major phase of the plan:
 
-```
-iteration = 0
-DO:
-  1. Save plan to: docs/plans/YYYY-MM-DD-<feature-name>.md
-  2. Run: adviser plan-analysis --input docs/plans/YYYY-MM-DD-<feature-name>.md --mode aisp
-  3. Read manifest from stdout path (format: `[Adviser] Output manifest: <path>`)
-  4. Parse manifest JSON to get asset paths, then read .aisp file for verdict
-  5. IF adviser returns critical/high issues:
-     - Revise plan based on feedback
-     - iteration++
-  6. ELSE: plan approved
-UNTIL (plan approved) OR (iteration >= MAX_ITERATIONS)
+**After completing a phase:**
+1. Save plan progress to: `docs/plans/YYYY-MM-DD-<feature-name>.md`
+2. Run: `adviser plan-analysis --input docs/plans/YYYY-MM-DD-<feature-name>.md --mode aisp`
+3. Read manifest from stdout path (format: `[Adviser] Output manifest: <path>`)
+4. Parse manifest JSON to get asset paths, then read `.aisp` file for verdict
+5. Review adviser feedback and address critical/high issues
+6. Note any unresolved concerns in plan header
+7. Continue to next phase
 
-IF iteration >= MAX_ITERATIONS:
-  - Add "Adviser Review" note to plan header with unresolved concerns
-  - Proceed to handoff (ON_MAX_REACHED=continue)
-```
+**Phases that trigger adviser:**
+- After defining the architecture overview
+- After completing all tasks for a component
+- Before final handoff
 
 ## Remember
 - Exact file paths always
@@ -131,5 +150,5 @@ IF iteration >= MAX_ITERATIONS:
 - Exact commands with expected output
 - Reference relevant skills with @ syntax
 - DRY, YAGNI, TDD, frequent commits
-- **Run adviser loop before handoff**
-- **Trust the loop** - adviser catches issues; iterate rather than perfect first draft
+- **Run adviser once per phase, not in loops**
+- Address critical issues, document remaining concerns

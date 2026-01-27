@@ -12,6 +12,29 @@ Export the current conversation context to a markdown file and run the adviser f
 - Problem-solving progress
 - Decision quality
 
+## Protocol References
+
+**Load these protocols** for review guidance (use `/protocol-loader` for efficient loading):
+
+| Protocol | Purpose in Review |
+|----------|-------------------|
+| `{{AGENT_DIR}}/protocols/triangulation.aisp` | Multi-perspective validation: `Confidence ∝ |IndependentWitnesses|` |
+| `{{AGENT_DIR}}/protocols/flow.aisp` | Verdict interpretation: `approve\|revise\|reject` logic |
+| `{{AGENT_DIR}}/protocols/solid.aisp` | Architecture quality checklist: SOLID principles |
+
+**Key Protocol Rules for Review:**
+```
+;; From triangulation.aisp - Confidence scoring
+Rule_Det≜λ(e).e.witness.type≡Deterministic ⇒ e.score ∈ [0.90, 1.0]
+Rule_LLM≜λ(e).e.witness.type∈{Local,Regional,Global} ⇒ e.score ∈ [0.40, 0.70]
+Threshold_Valid≜0.50  ;; Minimum confidence for valid assertion
+
+;; From flow.aisp - Verdict logic
+Verdict_From_Critical≜∀a:critical_count(a)>0 ⇒ verdict(a)≡reject
+Verdict_From_High≜∀a:high_count(a)>2 ⇒ verdict(a)≡revise
+Verdict_Approve≜∀a:critical_count(a)=0 ∧ high_count(a)=0 ⇒ verdict(a)≡approve
+```
+
 ## The Process
 
 ### Step 1: Export Conversation
@@ -19,20 +42,21 @@ Export the current conversation context to a markdown file and run the adviser f
 Write the relevant conversation context to a temporary markdown file:
 
 ```
-1. Create file: /tmp/conversation-review-<timestamp>.md
-2. Include:
+1. Create ./tmp directory if it doesn't exist
+2. Create file: ./tmp/conversation-review-<timestamp>-<uuid8>.md (where <uuid8> is 8 random hex chars)
+3. Include:
    - Current topic/objective being discussed
    - Key decisions made
    - Important code snippets or designs mentioned
    - Open questions or concerns
-3. Format as clean markdown with headers for each section
+4. Format as clean markdown with headers for each section
 ```
 
 ### Step 2: Run Adviser
 
 ```bash
 # Run adviser in default AISP mode
-adviser design-review --input /tmp/conversation-review-<timestamp>.md
+adviser design-review --input ./tmp/conversation-review-<timestamp>-<uuid8>.md
 ```
 
 ### Step 3: Parse Results
@@ -75,7 +99,8 @@ Choose the appropriate adviser task type based on context:
 ```
 User: "Review our conversation so far"
 
-1. Write to /tmp/conversation-review-1737200000.md:
+1. Ensure ./tmp exists: mkdir -p ./tmp
+2. Write to ./tmp/conversation-review-1737200000-a1b2c3d4.md:
    ---
    # Conversation Review: OTFUSE Markdown VFS Design
    
@@ -94,7 +119,7 @@ User: "Review our conversation so far"
    - Cache consistency approach?
    ---
 
-2. Run: adviser design-review --input /tmp/conversation-review-1737200000.md
+3. Run: adviser design-review --input ./tmp/conversation-review-1737200000-a1b2c3d4.md
 
-3. Report verdict and key findings to user
+4. Report verdict and key findings to user
 ```

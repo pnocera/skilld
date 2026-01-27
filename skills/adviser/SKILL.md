@@ -13,6 +13,25 @@ Provides critical analysis with three specialized personas for different types o
 - **Plan Analysis** (`plan-analysis`): Reviewing implementation plans for correctness and sequencing
 - **Code Verification** (`code-verification`): Cross-referencing code against design/plan for accuracy
 
+## Protocol Foundation
+
+The adviser skill is **formalized in AISP protocols** that define the rules, personas, and verdict logic:
+
+| Task Type | Governing Protocols | Key Formalizations |
+|-----------|---------------------|-------------------|
+| `design-review` | `{{AGENT_DIR}}/protocols/flow.aisp`, `{{AGENT_DIR}}/protocols/solid.aisp` | Architect persona, SOLID validation |
+| `plan-analysis` | `{{AGENT_DIR}}/protocols/flow.aisp`, `{{AGENT_DIR}}/protocols/yagni.aisp` | Strategist persona, task necessity |
+| `code-verification` | `{{AGENT_DIR}}/protocols/solid.aisp`, `{{AGENT_DIR}}/protocols/triangulation.aisp` | Auditor persona, multi-witness confidence |
+
+**Verdict Logic** (from `{{AGENT_DIR}}/protocols/flow.aisp`):
+```
+Verdict_From_Critical≜∀a:critical_count(a)>0 ⇒ verdict(a)≡reject
+Verdict_From_High≜∀a:high_count(a)>2 ⇒ verdict(a)≡revise
+Verdict_Approve≜∀a:critical_count(a)=0 ∧ high_count(a)=0 ⇒ verdict(a)≡approve
+```
+
+**To understand adviser output**, load relevant protocols or use `/protocol-loader` workflow.
+
 ## How to Use
 
 ### Windows

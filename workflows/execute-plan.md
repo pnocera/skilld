@@ -18,7 +18,7 @@ Load plan, review critically, execute tasks in batches, report for review betwee
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `MAX_ITERATIONS` | 5 | Maximum code-verification loops per batch |
+| `MAX_ITERATIONS` | 2 | Maximum code-verification loops per batch |
 | `CHECKPOINT_TYPE` | code-verification | Adviser task to run |
 | `OUTPUT_MODE` | aisp | Use AISP 5.1 format for AI-to-AI communication |
 | `ON_MAX_REACHED` | stop | Halt and report to human |
@@ -31,6 +31,36 @@ Load plan, review critically, execute tasks in batches, report for review betwee
 - `⊘` = critical, `◊⁻` = high, `◊` = medium, `◊⁺` = low severity
 - `⟦Γ:Rules⟧` — Logic block with decision rules
 - `⟦Ε⟧` — Evidence block with metrics (δ=density, φ=score, τ=tier)
+
+## Protocol References
+
+**Load these protocols** for execution guidance (use `/protocol-loader` for efficient loading):
+
+| Protocol | Purpose in Execution |
+|----------|----------------------|
+| `{{AGENT_DIR}}/protocols/solid.aisp` | Validate code quality: `validate_SOLID≜{SRP,OCP,LSP,ISP,DIP}` |
+| `{{AGENT_DIR}}/protocols/triangulation.aisp` | Multi-witness verification: `Confidence ∝ |IndependentWitnesses|` |
+| `{{AGENT_DIR}}/protocols/flow.aisp` | Execute batch logic: `execute_batch≜λ(batch).{FOR task∈batch...adviser_loop}` |
+
+**Key Protocol Rules for Execution:**
+```
+;; From flow.aisp - Batch execution with verification
+execute_batch≜λ(batch).{
+  FOR task∈batch:{
+    IF config.checksum_skip ∧ checksum_match(task): continue
+    mark_in_progress(task) → execute(task) → mark_completed(task)
+  }
+  ⟨approved, iterations⟩≜adviser_loop(code_verification_config,files)
+}
+
+;; From solid.aisp - Code verification thresholds
+τ_s≜7   ;; SRP: max 7 dependencies per component
+τ_i≜5   ;; ISP: max 5 methods per interface
+
+;; From triangulation.aisp - Confidence scoring
+Threshold_Valid≜0.50
+CalculateConfidence≜λ(ev_set).min(1.0, avg + max(0, (1-variance)*0.2))
+```
 
 Override defaults by announcing before batch: "This batch: MAX_ITERATIONS=10"
 
@@ -67,14 +97,15 @@ DO:
     5. Mark as completed
     6. **Save checksum (if CHECKSUM_SKIP=true):** write hash to `.cache/task-<id>.md5`
 
-  7. Write batch files list to: /tmp/batch-files.md
-  8. Run: adviser code-verification --input /tmp/batch-files.md --mode aisp
-  9. Read manifest from stdout path (format: `[Adviser] Output manifest: <path>`)
-  10. Parse manifest JSON to get asset paths, then read .aisp file for verdict
-  11. IF adviser returns critical/high issues:
-     - Fix identified issues
-     - batch_iteration++
-  12. ELSE: batch approved
+  7. Create ./tmp directory if it doesn't exist
+  8. Write batch files list to: ./tmp/batch-files-<uuid8>.md (where <uuid8> is 8 random hex chars)
+  9. Run: adviser code-verification --input ./tmp/batch-files-<uuid8>.md --mode aisp
+  10. Read manifest from stdout path (format: `[Adviser] Output manifest: <path>`)
+  11. Parse manifest JSON to get asset paths, then read .aisp file for verdict
+  12. IF adviser returns critical/high issues:
+      - Fix identified issues
+      - batch_iteration++
+  13. ELSE: batch approved
 UNTIL (batch approved) OR (batch_iteration >= MAX_ITERATIONS)
 
 IF batch_iteration >= MAX_ITERATIONS:

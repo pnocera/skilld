@@ -10,15 +10,13 @@ Help turn ideas into fully formed designs and specs through natural collaborativ
 
 Start by understanding the current project context, then ask questions one at a time to refine the idea. Once you understand what you're building, present the design in small sections (200-300 words), checking after each section whether it looks right so far.
 
-## Adviser Loop Configuration
+## Adviser Configuration
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `MAX_ITERATIONS` | 3 | Maximum design-review loops per section |
+| Setting | Value | Description |
+|---------|-------|-------------|
 | `CHECKPOINT_TYPE` | design-review | Adviser task to run |
 | `OUTPUT_MODE` | aisp | Use AISP 5.1 format for AI-to-AI communication |
-| `ON_MAX_REACHED` | escalate | Report unresolved issues to human |
-| `SUCCESS_CRITERIA` | `⊢Verdict(approve)` or no `⊘`/`◊⁻` issues | When to proceed |
+| `WHEN_TO_RUN` | once, after complete design | Single validation at end |
 
 **AISP Awareness**: Before interpreting adviser output, reference `.agent/skills/adviser/aisp-quick-ref.md`. Key symbols:
 - `⊢Verdict(approve|revise|reject)` — Final verdict
@@ -26,7 +24,28 @@ Start by understanding the current project context, then ask questions one at a 
 - `⟦Γ:Rules⟧` — Logic block with decision rules
 - `⟦Ε⟧` — Evidence block with metrics (δ=density, φ=score, τ=tier)
 
-Override defaults by announcing at section start: "This section: MAX_ITERATIONS=5"
+## Protocol References
+
+**Load these protocols** for design guidance (use `/protocol-loader` for efficient loading):
+
+| Protocol | Purpose in Brainstorming |
+|----------|--------------------------|
+| `{{AGENT_DIR}}/protocols/solid.aisp` | Validate architecture: SRP (single responsibility), OCP (extensibility), DIP (abstractions) |
+| `{{AGENT_DIR}}/protocols/yagni.aisp` | Trim speculation: `∀w∈System: Required(w)` — every feature needs evidence |
+| `{{AGENT_DIR}}/protocols/flow.aisp` | Guide brainstorming flow: `brainstorm≜λ(context).{understand→alternatives→sections→validate}` |
+
+**Key Protocol Rules for Design:**
+```
+;; From solid.aisp - Component quality
+∀c:Component:∃!r:ψ.responsibility(c)≡r  ;; SRP: single responsibility
+∀e:Entity:∂𝒩(e)≡∅                       ;; OCP: closed nucleus, open extension
+
+;; From yagni.aisp - Anti-speculation
+∀w: w∈SpeculativeFeature ⇒ Action(Developer, w) ≡ Reject
+
+;; From flow.aisp - Brainstorm structure
+sections≜{architecture,components,data_flow,error,testing}
+```
 
 ## The Process
 
@@ -43,32 +62,25 @@ Override defaults by announcing at section start: "This section: MAX_ITERATIONS=
 - Present options conversationally with your recommendation and reasoning
 - Lead with your recommended option and explain why
 
-**Presenting the design (with adviser loop):**
+**Presenting the design:**
 
-For each design section:
+Present design in sections (200-300 words each). Cover: architecture, components, data flow, error handling, testing.
 
-```
-iteration = 0
-DO:
-  1. Present section (200-300 words)
-  2. Write section to temp file: /tmp/design-section.md
-  3. Run: adviser design-review --input /tmp/design-section.md --mode aisp
-  4. Read manifest from stdout path to find output .aisp file
-  5. Parse AISP output for verdict/issues
-  6. IF adviser returns critical/high issues:
-     - Revise section based on feedback
-     - iteration++
-  7. ELSE: section approved
-UNTIL (section approved) OR (iteration >= MAX_ITERATIONS)
+Check with user after each section: "Does this look right so far?"
 
-IF iteration >= MAX_ITERATIONS:
-  - Document unresolved adviser concerns
-  - Escalate to human: "Adviser flagged issues I couldn't resolve. Review needed."
-ELSE:
-  - Proceed to next section
-```
+## Final Adviser Review
 
-Cover in sections: architecture, components, data flow, error handling, testing
+After the complete design is drafted and user-approved:
+
+1. Create `./tmp` directory if it doesn't exist
+2. Write complete design to: `./tmp/design-complete-<uuid8>.md` (where `<uuid8>` is 8 random hex chars)
+3. Run: `adviser design-review --input ./tmp/design-complete-<uuid8>.md --mode aisp`
+4. Read manifest from stdout path to find output `.aisp` file
+5. Parse AISP output for verdict/issues
+6. IF adviser returns critical/high issues:
+   - Review and address concerns
+   - Note any unresolved issues in final documentation
+7. Proceed to documentation
 
 ## After the Design
 

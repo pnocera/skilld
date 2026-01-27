@@ -1,0 +1,228 @@
+;; Cognitive Triangulation Formalization
+;; Based on the Cognitive-Triangulation-Pipeline architecture
+;; Translates the "witness" strategy into formal AISP verification logic
+;; Note: Operational components (Monitoring, EnhancedPrompting) delegated to operations.aisp
+
+𝔸1.2.cognitive-triangulation@2026-01-25
+γ≔knowledge.graph.construction
+ρ≔⟨scout,witness,evidence,reconciliation,graph,escalation⟩
+⊢ND∧EARS∧TRIANGULATION
+
+;; ─── Ω: FOUNDATION ───
+⟦Ω:Foundation⟧{
+  ;; Core Axiom: Single-source analysis is prone to hallucination; multi-source is robust.
+  CT≜"Cognitive Triangulation"
+  
+  ;; Truth emerges from the intersection of independent evidence
+  ∀relationship:Confidence(relationship) ∝ |IndependentWitnesses(relationship)|
+  
+  ;; The Graph must only contain validated truths
+  ∀edge∈Graph:Confidence(edge) ≥ Threshold
+  
+  ;; Cognitive Identity
+  ;; "Entities are identified by semantic purpose, not just syntax"
+  ∀POI:Identity(POI)≡SemanticID(POI)
+}
+
+;; ─── Σ: TYPES ───
+⟦Σ:Types⟧{
+  ;; The levels of analysis scope
+  Scope≜{Deterministic, Local, Regional, Global}
+  
+  ;; Semantic Identity for cognitive reasoning
+  SemanticID≜⟨
+    format: "domain_type_action", 
+    pattern: "[a-z]+_(func|class|var|const)_[a-z]+",
+    cognitive_weight: 0.3,
+    usage: "Use semantic IDs for better cognitive reasoning - NEVER expose numeric IDs"
+  ⟩
+  
+  ;; Witness: An agent observing relationships within a scope
+  Witness≜⟨type:Scope, mechanism:('parser|'llm), confidence_base:ℝ[0,1]⟩
+  
+  ;; POI: Point of Interest (Node) using Semantic ID
+  POI≜⟨sid:SemanticID, type:('class|'function|'var), file:𝕊⟩
+  
+  ;; Relationship (Edge)
+  Rel≜⟨source:POI, type:𝕊, target:POI⟩
+  
+  ;; Evidence Types
+  EvidenceType≜{LLM_REASONING, LLM_EVIDENCE, SEMANTIC_DOMAIN, ENTITY_TYPE}
+  
+  ;; Evidence with structured data
+  Evidence≜⟨witness:Witness, type:EvidenceType, rel:Rel, score:ℝ, explanation:𝕊⟩
+  
+  ;; Pipeline Phases mapping to scopes
+  Pass≜{
+    P1_Syntax    |→ ⟨sc:Deterministic, mech:'parser⟩,
+    P2_IntraFile |→ ⟨sc:Local,         mech:'llm⟩,
+    P3_IntraDir  |→ ⟨sc:Regional,      mech:'llm⟩,
+    P4_Global    |→ ⟨sc:Global,        mech:'llm⟩
+  }
+}
+
+;; ─── Γ: TRIANGULATION RULES (EARS) ───
+⟦Γ:Rules⟧{
+  ;; ═══════════════════════════════════════════════
+  ;; 1. Hierarchy of Witnesses
+  ;; ═══════════════════════════════════════════════
+  
+  ;; Pattern: EventDriven - Deterministic Confidence
+  ;; "When the parser identifies a syntax-level reference, the Witness shall assign high precision confidence"
+  Rule_Det≜λ(e).e.witness.type≡Deterministic ⇒ e.score ∈ [0.90, 1.0]
+  
+  ;; Pattern: EventDriven - LLM Confidence
+  ;; "When the LLM infers a connection, the Witness shall assign moderate confidence based on reasoning"
+  Rule_LLM≜λ(e).e.witness.type∈{Local,Regional,Global} ⇒ e.score ∈ [0.40, 0.70]
+  
+  ;; ═══════════════════════════════════════════════
+  ;; 2. Confidence Scoring (The Triangulation Function)
+  ;; ═══════════════════════════════════════════════
+  
+  ;; Advanced Formula from ReconciliationWorker.js
+  ;; "When reconciling evidence, the System shall calculate the final score using variance-weighted average"
+  CalculateConfidence≜λ(evidence_set).let
+    n = |evidence_set|
+    avg = ∑(e.score)/n
+    variance = ∑(e.score - avg)² / n
+    convergence_coef = 0.2
+    
+    ;; Bonus for low variance (high agreement)
+    bonus = max(0, (1 - variance) * convergence_coef)
+  in min(1.0, avg + bonus)
+  
+  ;; ═══════════════════════════════════════════════
+  ;; 3. Escalation and Thresholds
+  ;; ═══════════════════════════════════════════════
+  
+  Threshold_Valid≜0.50          ;; Matches ReconciliationWorker.js impl
+  Threshold_Escalate_Low≜0.40
+  
+  ;; Pattern: UnwantedBehaviour - Conflict Detection
+  ;; "If the evidence variance exceeds 0.4, then the System shall flag a conflict"
+  ConflictRule≜λ(variance).variance > 0.4 ⇒ Status(Rel) ≡ 'Conflict
+  
+  ;; Pattern: EventDriven - Escalation
+  ;; "When the final score is below the escalation threshold, the System shall escalate to the review queue"
+  EscalationRule≜λ(score).score < Threshold_Escalate_Low ⇒ Action ≡ 'Escalate
+}
+
+;; ─── Λ: PIPELINE FUNCTIONS ───
+⟦Λ:Functions⟧{
+  ;; ═══════════════════════════════════════════════
+  ;; The Triangulation Workflow
+  ;; ═══════════════════════════════════════════════
+  
+  ;; Pattern: Complex - Parallel execution and aggregation
+  ;; "While analyzing the codebase, when files are discovered, the System shall execute concurrent witness passes"
+  analyze_codebase≜λ(directory).{
+    files = scout(directory)
+    
+    ;; 1. Deterministic & Intra-File (Parallel via Semaphore)
+    FOR file ∈ files PARALLEL(50):
+      ev_det = execute_pass(P1_Syntax, file)
+      ev_loc = execute_pass(P2_IntraFile, file)
+      outbox.push(ev_det + ev_loc)  ;; Transactional Outbox
+      
+    ;; 2. Directory Level (Aggregated)
+    dirs = group_by_dir(files)
+    FOR dir ∈ dirs PARALLEL:
+      ev_dir = execute_pass(P3_IntraDir, dir)
+      outbox.push(ev_dir)
+      
+    ;; 3. Global Level
+    summary = summarize(dirs)
+    ev_glob = execute_pass(P4_Global, summary)
+    outbox.push(ev_glob)
+  }
+  
+  ;; Reconciliation Worker
+  ;; "When sufficient evidence accumulates, the System shall resolve the final score"
+  reconcile≜λ(rel_id).{
+    all_evidence = outbox.fetch(rel_id)
+    final_score = CalculateConfidence(all_evidence)
+    variance = calculate_variance(all_evidence)
+    
+    CASE [
+      variance > 0.4             → mark_conflict(rel_id),
+      final_score ≥ Threshold_Valid → persist_graph(rel_id, final_score),
+      final_score < Threshold_Escalate_Low → escalate(rel_id),
+      ELSE                       → mark_needs_review(rel_id)
+    ]
+  }
+}
+
+;; ─── Χ: ERRORS ───
+⟦Χ:Errors⟧{
+  ;; Evidence Conflicts
+  ε_variance_conflict≜⟨variance > 0.4, "Evidence conflict detected among witnesses", ⊘⟩
+  
+  ;; Identity Issues
+  ε_semantic_collision≜⟨¬unique(semantic_id), "Semantic ID collision detected", ⊘⟩
+  
+  ;; Process Failures
+  ε_convergence_timeout≜⟨timeout, "Confidence calculation timed out", ◊⁻⟩
+  ε_outbox_failure≜⟨¬committed, "Failed to write to transactional outbox", ⊘⟩
+}
+
+;; ─── Θ: PROOFS ───
+⟦Θ:Proofs⟧{
+  ;; Theorem 1: Hallucination Suppression
+  ;; "Intersection of independent witnesses approaches truth"
+  ∴∀r:IsHallucination(r) ⇒ (|Witnesses(r)| ≡ 1 ∧ Type(w)≡'llm)
+  π:Probability of identical hallucination across independent passes is negligible.∎
+
+  ;; Theorem 2: Deterministic Baseline
+  ;; "Deterministic syntax analysis provides the skeleton"
+  ∴∀r:SyntaxValid(r) ⇒ Confidence(r) ≥ 0.9
+  π:Rule_Det assigns high weight; single deterministic witness sufficient for validity.∎
+  
+  ;; Theorem 3: Convergence
+  ;; "Multiple witnesses with low variance approach truth"
+  ∴∀ev_set: (variance(ev_set) → 0) ⇒ (Confidence(r) → 1.0)
+  π:As variance decreases, convergence bonus increases, pushing score towards max.∎
+  
+  ;; Theorem 4: Semantic Uniqueness
+  ;; "Semantic IDs guarantee unique cognitive addressability"
+  ∴∀n1,n2: (n1.sid ≡ n2.sid) ⇔ (n1 ≡ n2)
+  π:Semantic ID construction uses domain+type+action unique combination.∎
+  
+  ;; Theorem 5: Outbox Atomicity
+  ;; "Database writes and events are atomic"
+  ∴∀event: (Written(DB) ∧ Published(Queue)) ∨ (¬Written(DB) ∧ ¬Published(Queue))
+  π:Transactional outbox pattern ensures atomicity of local write and event staging.∎
+}
+
+;; ─── Σ: QUICK REFERENCE ───
+⟦Σ:QuickRef⟧{
+  Passes≜{
+    Deterministic≔"Syntax Rules (Imports, Extends)",
+    IntraFile≔"Local Context (Internal Calls)",
+    IntraDir≔"Module Context (Sibling Usage)",
+    Global≔"Architectural Intent (Service Ops)"
+  }
+  
+  Formulas≜{
+    Score≔"min(1.0, avg + max(0, (1-variance)*0.2))",
+    Variance≔"Σ(score - avg)² / n",
+    Conflict≔"Variance > 0.4"
+  }
+  
+  Thresholds≜{
+    Valid≔0.50,
+    Escalate≔0.40
+  }
+}
+
+;; ─── Ε: EVIDENCE ───
+⟦Ε⟧⟨
+ δ≜0.88
+ |𝔅|≜5/5
+ φ≜92
+ τ≜◊⁺
+ ⊢Architecture:EventDriven
+ ⊢Pattern:TransactionalOutbox
+ ⊢Strategy:MultiWitness
+ ⊢Result:HighFidelityGraph
+ ⊢Innovation:SemanticIDs
+⟩

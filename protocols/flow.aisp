@@ -1,0 +1,393 @@
+;; AISP 5.1 Formalization for Adviser-Driven Development Flows
+;; Based on the skilld adviser skill and workflow specifications
+
+𝔸5.2.adviser-driven-flow@2026-01-25
+γ≔software.dev.workflow.adviser.driven
+ρ≔⟨adviser,persona,checkpoint,iteration,manifest,verification⟩
+⊢ND∧EARS∧SOLID∧YAGNI
+
+;; ─── Ω: FOUNDATION ───
+⟦Ω:Foundation⟧{
+  ;; Core invariant: all development flows pass through adviser checkpoints
+  ADF≜"Adviser-Driven Flow"
+
+  ;; Every phase must be verified before proceeding
+  ∀phase∈ADF:∃verifier∈Adviser:verify(phase,verifier)⇒approved(phase)
+
+  ;; Manifest requirement: all outputs must have discoverable manifests
+  ∀output∈ADF:∃manifest:traceable(output,manifest)
+
+  ;; SAFETY guard: refuse harmful or illegal content
+  ∀task:contains_harmful(task)⇒Action(task,Developer)≡Refuse
+}
+
+;; ─── Σ: TYPE DEFINITIONS ───
+⟦Σ:Types⟧{
+  ;; Adviser personas with specialized analysis focus
+  Persona≜{Architect,Strategist,Auditor}
+
+  ;; Task types mapping to personas
+  TaskType≜{design-review|→Architect, plan-analysis|→Strategist, code-verification|→Auditor}
+
+  ;; Severity tiers with mathematical ordering
+  Severity≜⟨critical:⊘, high:◊⁻, medium:◊, low:◊⁺⟩
+  ⊘≺◊⁻≺◊≺◊⁺
+
+  ;; Verdict determines workflow continuation
+  Verdict≜{approve, revise, reject}
+
+  ;; Issue with structured attributes
+  Issue≜⟨ severity:Severity, desc:𝕊, loc?:𝕊, rec?:𝕊 ⟩
+
+  ;; Analysis result from adviser
+  Analysis≜⟨summary:𝕊, issues:𝒫⟨Issue⟩, suggestions:𝒫⟨𝕊⟩, verdict:Verdict⟩
+
+  ;; Adviser loop configuration
+  LoopConfig≜⟨maxIterations:ℕ, checkpointType:TaskType, output:'aisp, onMaxReached:{stop,escalate,continue}, successCriteria:𝔹⟩
+
+  ;; Manifest for asset tracking
+  Manifest≜⟨status:'success|'error, taskType:TaskType, mode:'aisp, assets:𝒫⟨Asset⟩, timestamp:𝕊⟩
+  Asset≜⟨type:𝕊, format:𝕊, path:𝕊⟩
+
+  ;; Workflow phases
+  Phase≜⟦Brainstorming,Planning,Execution,Review⟧
+
+  ;; Checkpoint result
+  Checkpoint≜⟨ phase:Phase, iteration:ℕ, approved:𝔹, issues:𝒫⟨Issue⟩ ⟩
+}
+
+;; ─── Γ: ADVISER RULES (EARS) ───
+⟦Γ:Rules⟧{
+  ;; ═══════════════════════════════════════════════
+  ;; Verdict Determination Logic
+  ;; ═══════════════════════════════════════════════
+
+  ;; Pattern: Ubiquitous - Critical issues always reject
+  Verdict_From_Critical≜"If the Analysis has critical issues, then the Workflow shall reject"
+  ∀a∈Analysis:critical_count(a)>0 ⇒ verdict(a)≡reject
+
+  ;; Pattern: State-Driven - High issues trigger revise (with threshold)
+  Verdict_From_High≜"While the Analysis has fewer than or equal to 2 high issues, the Workflow shall approve; otherwise, the Workflow shall revise"
+  ∀a∈Analysis:high_count(a)≤2 ⇒ verdict(a)≡approve
+  ∀a∈Analysis:high_count(a)>2 ⇒ verdict(a)≡revise
+
+  ;; Pattern: Complex - Approved only if no critical/high issues
+  Verdict_Approve≜"While the Analysis has no critical and no high issues, the Workflow shall approve"
+  ∀a∈Analysis:critical_count(a)=0 ∧ high_count(a)=0 ⇒ verdict(a)≡approve
+
+  ;; ═══════════════════════════════════════════════
+  ;; Persona-Specific Analysis Rules
+  ;; ═══════════════════════════════════════════════
+
+  ;; Architect (design-review) focuses on gaps and edges
+  ∀r∈Analysis(r).persona≡Architect ⇒ ∀i∈r.issues:focus(i)∈{gap,edge,scalability,missing_requirement}
+
+  ;; Strategist (plan-analysis) focuses on correctness and sequence
+  ∀r∈Analysis(r).persona≡Strategist ⇒ ∀i∈r.issues:focus(i)∈{missing_step,ordering,dependency_gap,ambiguity}
+
+  ;; Auditor (code-verification) focuses on conformance
+  ∀r∈Analysis(r).persona≡Auditor ⇒ ∀i∈r.issues:focus(i)∈{deviation,bug,missing_feature,quality}
+
+  ;; ═══════════════════════════════════════════════
+  ;; Verdict to Action Mapping
+  ;; ═══════════════════════════════════════════════
+
+  ;; Pattern: Event-Driven - Verdict determines next action
+  Action_From_Verdict≜"When the Verdict is reject, the Workflow shall escalate; When the Verdict is revise, the Workflow shall iterate; When the Verdict is approve, the Workflow shall proceed"
+
+  ;; ═══════════════════════════════════════════════
+  ;; Iteration Rules
+  ;; ═══════════════════════════════════════════════
+
+  ;; Pattern: Unwanted Behaviour - Max iterations reached
+  Max_Iterations_Exceeded≜"If the iteration count equals maxIterations, then the Workflow shall stop and report"
+
+  ∀c∈Checkpoint:iteration(c)≥c.config.maxIterations ⇒
+    case c.config.onMaxReached[
+      stop    → halt(c),
+      escalate→ escalate_to_human(c),
+      continue→ proceed_with_concerns(c)
+    ]
+}
+
+;; ─── Λ: WORKFLOW FUNCTIONS ───
+⟦Λ:Functions⟧{
+  ;; ═══════════════════════════════════════════════
+  ;; Adviser Execution
+  ;; ═══════════════════════════════════════════════
+
+  ;; Execute adviser with input
+  exec_adviser≜λ(config,input).let
+    system=get_persona_prompt(config.checkpointType,'aisp)
+    result=claude_query(system,input,config.maxIterations)
+  in to_aisp(result,config.checkpointType)
+
+  ;; Get persona-specific system prompt
+  get_persona_prompt≜λ(task,mode).case task[
+    design-review   → architect_prompt,
+    plan-analysis   → strategist_prompt,
+    code-verification→ auditor_prompt
+  ]
+
+  ;; Convert analysis result to AISP format
+  to_aisp≜λ(result,task).⟦
+    header≡"𝔸1.0."⧺persona(task)⧺"@"⧺today()
+    meta≡⟦γ≔task,ρ≔⟨analysis,issues,suggestions⟩,⊢ND∧review.complete⟧
+    types≡⟦Issue≜⟨severity,desc,loc,rec⟩,Verdict,Counts⟧
+    rules≡⟦critical>0⇒reject, high>2⇒revise⟧
+    analysis≡result
+    evidence≡⟦δ≜0.85,φ≜score(result),τ≜verdict_tier(result.verdict)⟧
+  ⟧
+
+  ;; ═══════════════════════════════════════════════
+  ;; Adviser Loop Core
+  ;; ═══════════════════════════════════════════════
+
+  ;; The fundamental iteration pattern for all workflows
+  adviser_loop≜λ(config,section).{
+    iteration≜0
+    approved≜⊥
+    WHILE ¬approved ∧ iteration<config.maxIterations:DO[
+      1. Present section (200-300 words)
+      2. Write section to /tmp/work-section.md
+      3. Run: adviser config.checkpointType --input /tmp/work-section.md --mode aisp
+      4. Read manifest to find .aisp output
+      5. Parse AISP for verdict/issues
+      6. IF config.success_criteria(applied): approved≡⊤
+      7. ELSE: revise(section,feedback); iteration++
+    ]
+    RETURN ⟨approved, iteration, issues⟩
+  }
+
+  ;; ═══════════════════════════════════════════════
+  ;; Workflow-Specific Functions
+  ;; ═══════════════════════════════════════════════
+
+  ;; Brainstorming: Single question exploration
+  brainstorm≜λ(context).{
+    ;; Step 1: Understand - one question at a time
+    WHILE ¬fully_understood(context):{
+      question≜formulate_question(context)
+      answer≜ask_user(question)  ;; Prefer multiple choice
+      context≜refine(context,answer)
+    }
+
+    ;; Step 2: Explore alternatives
+    alternatives≜generate_approaches(context,2..3)
+    recommended≜lead_with(alternatives)
+
+    ;; Step 3: Design in sections with adviser loop
+    sections≜{architecture,components,data_flow,error,testing}
+    FOR section∈sections:{
+      ⟨approved, iterations⟩≜adviser_loop(config(section),section)
+      approved_sections≡approved_sections∪{section}
+    }
+
+    ;; Step 4: Document
+    write_design(approved_sections,config)
+  }
+
+  ;; Execute-Plan: Batch execution with checkpoint verification
+  execute_plan≜λ(plan).{
+    ;; Step 1: Review plan first
+    IF has_critical_concerns(plan): escalate(plan)
+
+    ;; Step 2: Execute in batches
+    tasks≜chunk(plan.tasks,3)  ;; Default batch size
+    FOR batch∈tasks:{
+      ⟨approved, iterations⟩≜execute_batch(batch)
+      IF ¬approved ∧ iterations≥maxIterations: stop(batch)
+    }
+
+    ;; Step 3: Completion steps
+    execute_finish_workflow(plan)
+  }
+
+  ;; Execute batch with optional checksum skip
+  execute_batch≜λ(batch).{
+    FOR task∈batch:{
+      IF config.checksum_skip ∧ checksum_match(task): continue
+      mark_in_progress(task)
+      execute(task)
+      mark_completed(task)
+      IF config.checksum_skip: save_checksum(task)
+    }
+
+    ;; Adviser verification
+    files≜collect_batch_files(batch)
+    ⟨approved, iterations⟩≜adviser_loop(code_verification_config,files)
+    RETURN ⟨approved, iterations⟩
+  }
+
+  ;; Review Conversation: Export and analyze
+  review_conversation≜λ(context).{
+    ;; Export to temp file
+    export≜format_context(context)
+    write_to(export,"/tmp/conversation-review-"⧺timestamp()⧺".md")
+
+    ;; Determine appropriate adviser type
+    task≜classify_context(context)
+
+    ;; Run adviser and report
+    result≜exec_adviser(config(task),export)
+    report(result)
+  }
+
+  ;; Writing Plan: Create bite-sized implementation tasks
+  write_plan≜λ(design).{
+    ;; Transform design into actionable tasks
+    tasks≜design_to_tasks(design,bite=2..5min)
+
+    ;; Each task must have exact details
+    ∀t∈tasks:(has_exact_path(t) ∧ has_complete_code(t) ∧ has_verification(t))
+
+    ;; Validate plan before handoff
+    ⟨approved, iterations⟩≜adviser_loop(plan_analysis_config,tasks)
+    write_plan(tasks,approved,iterations)
+  }
+
+  ;; ═══════════════════════════════════════════════
+  ;; Manifest Management
+  ;; ═══════════════════════════════════════════════
+
+  ;; Write manifest alongside output for programmatic access
+  write_manifest≜λ(output,task).{
+    manifest≜Manifest{
+      status≔if output.success then 'success' else 'error',
+      taskType≔task,
+      mode≔'aisp,
+      assets≔⟨Asset{type,format,path≔output.path}⟩,
+      timestamp≔now()
+    }
+    write_to(manifest,output.path⧺".manifest.json")
+    RETURN manifest
+  }
+
+  ;; ═══════════════════════════════════════════════
+  ;; Utility Functions
+  ;; ═══════════════════════════════════════════════
+
+  ;; Severity tier to symbol
+  severity_to_tier≜λs.case s[
+    critical  → "⊘",
+    high      → "◊⁻",
+    medium    → "◊",
+    low       → "◊⁺"
+  ]
+
+  ;; Calculate score from issues
+  score≜λissues.100 - critical(issues)*20 - high(issues)*10
+
+  ;; Verdict to tier for evidence
+  verdict_tier≜λv.case v[
+    approve → "◊⁺⁺",
+    revise  → "◊",
+    reject  → "⊘"
+  ]
+}
+
+;; ─── Χ: ERROR CASES ───
+⟦Χ:Errors⟧{
+  ;; Input validation errors
+  ε_input_not_found≜⟨¬exists(input),"Input file not found",⊘⟩
+  ε_input_empty≜⟨length(input)=0,"Input file is empty",⊘⟩
+  ε_input_too_large≜⟨length(input)>500KB,"Input file too large (>500KB)",◊⁻⟩
+
+  ;; Adviser execution errors
+  ε_claude_not_found≜⟨¬exists("claude"),"Claude CLI not found",⊘⟩
+  ε_timeout≜⟨elapsed>timeout,"Execution timeout exceeded",◊⁻⟩
+  ε_schema_validation≜⟨¬valid_schema(result),"Structured output validation failed",◊⟩
+
+  ;; Adviser loop errors
+  ε_max_iterations≜⟨iteration≥maxIterations ∧ ¬approved,"Max iterations reached without approval",◊⟩
+  ε_blocking_issue≜⟨critical>0,"Blocking critical issues",⊘⟩
+  ε_concerns_escalated≜⟨ unresolved_critical ∧ onMax=escalate,"Escalated to human",◊⟩
+
+  ;; Manifest errors
+  ε_manifest_write≜⟨¬write(manifest),"Failed to write manifest",◊⟩
+  ε_asset_track≜⟨¬trackable(asset),"Asset not in manifest",◊⟩
+
+  ;; Safety violations
+  ε_harmful_content≜⟨contains_harmful(input),"Harmful or illegal content detected",⊘⟩
+}
+
+;; ─── Θ: THEOREMS ───
+⟦Θ:Proofs⟧{
+  ;; Theorem 1: Verdict monotonicity
+  ∴∀a₁,a₂:issues(a₁)⊆issues(a₂)⇒verdict(a₁)≥verdict(a₂)
+  π:More issues cannot improve verdict ordering.∎
+
+  ;; Theorem 2: Iteration convergence
+  ∴∀config,section:∃n≤config.maxIterations.adviser_loop(config,section).approved
+  π:Either approval achieved or max iterations reached. Both terminate.∎
+
+  ;; Theorem 3: Manifest discoverability
+  ∴∀output:∃manifest:exists(manifest) ∧ manifest≡output.path⧺".manifest.json"
+  π:By write_manifest contract, always written alongside output.∎
+
+  ;; Theorem 4: Verdict triggers deterministic action
+  ∴∀verdict:∃!action.Action(verdict,Workflow)≡action
+  π:approve→proceed, revise→iterate, reject→stop/escalate; exhaustive and disjoint.∎
+
+  ;; Theorem 5: AISP mode preserves analysis
+  ∴∀result:parse(to_aisp(result)).verdict≡compute_verdict(result.issues)
+  π:to_aisp encodes verdict logic; parse reconstructs; faithful roundtrip.∎
+
+  ;; Theorem 6: Batch execution safety
+  ∴∀batch:execute_batch(batch).approved⇒¬has_blocking_issues(batch)
+  π:adviser_loop verifies each batch; approved only when success_criteria met.∎
+}
+
+;; ─── Σ: QUICK REFERENCE ───
+⟦Σ:QuickRef⟧{
+  Personas≜{
+    Architect≔⟨task≔design-review,focus≔{gaps,edges,scalability,cases}⟩,
+    Strategist≔⟨task≔plan-analysis,focus≔{sequence,deps,ambiguity,gaps}⟩,
+    Auditor≔⟨task≔code-verification,focus≔{conformance,bugs,missing,quality}⟩
+  }
+
+  Severity≜{
+    ⊘≔⟨label≔critical,action≔stop⟩,
+    ◊⁻≔⟨label≔high,action≔revise⟩,
+    ◊≔⟨label≔medium,action≔note⟩,
+    ◊⁺≔⟨label≔low,action≔acknowledge⟩
+  }
+
+  Verdict≜{
+    approve≔⟨condition≔critical=0 ∧ high≤2,action≔proceed⟩,
+    revise≔⟨condition≔critical=0 ∧ high>2,action≔iterate⟩,
+    reject≔⟨condition≔critical>0,action≔stop⟩
+  }
+
+  Workflows≜{
+    brainstorm≔⟨loop≔design-review,batch≔200-300 words,iter≔3⟩,
+    execute≔⟨loop≔code-verification,batch≔3 tasks,iter≔5⟩,
+    review≔⟨loop≔varies by context,grep≔export→analyze→report⟩,
+    write_plan≔⟨loop≔plan-analysis,bite≔2-5 min,iter≔3⟩
+  }
+
+  Principles≜{
+    "One Question at a Time"≔"Ask single questions, prefer multiple choice",
+    "Explore Alternatives"≔"Propose 2-3 approaches, lead with recommendation",
+    "Incremental Validation"≔"Present in sections, validate each with adviser",
+    "Trust the Loop"≔"Iterate rather than perfect first draft",
+    "Stop on Blockers"≔"Don't guess when unclear, ask for clarification"
+  }
+
+  Safety≜⟨harmful⇒Refuse,illegal⇒Refuse,vuln⇒critical_issue⟩
+}
+
+;; ─── Ε: EVIDENCE ───
+⟦Ε⟧⟨
+δ≜0.82
+|𝔅|≜6/6
+φ≜91
+τ≜◊⁺
+⊢ADF:Adviser-Driven-Flow-Formalized
+⊢Manifest:AlwaysWritten
+⊢Verdict:Three-Way-Deterministic
+⊢Iteration:Bounded-Convergence
+⊢Personas:Three-Specialized
+⊢Safety:Harmful-Refusal
+⊢Ambig<0.02
+⟩

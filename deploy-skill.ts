@@ -80,6 +80,9 @@ function copyWorkflows(sourceWorkflowsDir: string, destWorkflowsDir: string, age
       let destFilename = entry;
       let content = readFileSync(fullSourcePath, 'utf8');
 
+      // Replace {{AGENT_DIR}} placeholder with actual agent directory
+      content = content.replace(/\{\{AGENT_DIR\}\}/g, agentDirName);
+
       if (isClaude) {
         // Clean up frontmatter for Claude slash commands
         // 1. Remove 'name:' field as it's for skills, not commands
@@ -90,6 +93,27 @@ function copyWorkflows(sourceWorkflowsDir: string, destWorkflowsDir: string, age
 
       writeFileSync(join(destWorkflowsDir, destFilename), content);
       copiedFiles.push(destFilename);
+    }
+  }
+
+  return copiedFiles;
+}
+
+// Copy protocol .aisp files
+function copyProtocols(sourceProtocolsDir: string, destProtocolsDir: string): string[] {
+  const copiedFiles: string[] = [];
+
+  if (!existsSync(sourceProtocolsDir) || !statSync(sourceProtocolsDir).isDirectory()) {
+    return copiedFiles;
+  }
+
+  mkdirSync(destProtocolsDir, { recursive: true });
+
+  for (const entry of readdirSync(sourceProtocolsDir)) {
+    const fullSourcePath = join(sourceProtocolsDir, entry);
+    if (entry.endsWith('.aisp') && statSync(fullSourcePath).isFile()) {
+      writeFileSync(join(destProtocolsDir, entry), readFileSync(fullSourcePath));
+      copiedFiles.push(entry);
     }
   }
 
@@ -187,7 +211,8 @@ async function deploy(destination: string, targetDir: string = '.agent') {
 
   const processedMd = skillMdContent
     .replace(/{{ADVISER_EXE}}/g, winPath)
-    .replace(/{{ADVISER_BIN}}/g, linuxPath);
+    .replace(/{{ADVISER_BIN}}/g, linuxPath)
+    .replace(/{{AGENT_DIR}}/g, agentDirName);
 
   writeFileSync(join(skillDestDir, 'SKILL.md'), processedMd);
 
@@ -230,11 +255,25 @@ async function deploy(destination: string, targetDir: string = '.agent') {
   log(`Copying workflow files to ${workflowDirName}/...`, 'blue');
   const copiedWorkflows = copyWorkflows(sourceWorkflowsDir, destWorkflowsDir, agentDirName);
 
+  // Copy protocols
+  const sourceProtocolsDir = join(process.cwd(), 'protocols');
+  const destProtocolsDir = join(resolvedDest, agentDirName, 'protocols');
+  log(`Copying protocol files to protocols/...`, 'blue');
+  const copiedProtocols = copyProtocols(sourceProtocolsDir, destProtocolsDir);
+  if (copiedProtocols.length > 0) {
+    for (const p of copiedProtocols) {
+      log(`  → protocols/${p}`, 'green');
+    }
+  }
+
   // Summary
   log('\n=== Deployment Complete ===', 'bright');
   log(`Skill deployed to: ${skillDestDir}`, 'green');
   if (copiedWorkflows.length > 0) {
     log(`${agentDirName === '.claude' ? 'Commands' : 'Workflows'} deployed to: ${destWorkflowsDir}`, 'green');
+  }
+  if (copiedProtocols.length > 0) {
+    log(`Protocols deployed to: ${destProtocolsDir}`, 'green');
   }
   log('\nDirectory structure:', 'blue');
   log(`  ${agentDirName}/skills/${skillName}/`, 'blue');
@@ -252,6 +291,12 @@ async function deploy(destination: string, targetDir: string = '.agent') {
     log(`  ${agentDirName}/${workflowDirName}/`, 'blue');
     for (const wf of copiedWorkflows) {
       log(`  ├── ${wf}`, 'blue');
+    }
+  }
+  if (copiedProtocols.length > 0) {
+    log(`  ${agentDirName}/protocols/`, 'blue');
+    for (const p of copiedProtocols) {
+      log(`  ├── ${p}`, 'blue');
     }
   }
 

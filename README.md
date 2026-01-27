@@ -173,6 +173,7 @@ The `deploy-skill.ts` script copies:
 - SKILL.md documentation
 - Example usage files
 - Workflow definitions
+- **AISP protocol specifications** (for protocol-driven development)
 
 ```bash
 bun deploy-skill.ts /path/to/project
@@ -187,13 +188,25 @@ project/
     │   │   ├── adviser.exe
     │   │   └── adviser
     │   ├── SKILL.md
-    │   ├── AISP_SPEC.md
+    │   ├── aisp-spec.md
     │   └── examples/
-    └── workflows/ (or commands/)
-        ├── brainstorm.md
-        ├── writing-plan.md
-        └── execute-plan.md
+    ├── workflows/ (or commands/)
+    │   ├── brainstorm.md
+    │   ├── writing-plan.md
+    │   ├── execute-plan.md
+    │   ├── protocol-loader.md        # NEW: Dynamic protocol loading
+    │   ├── protocol-driven-verification.md  # NEW: Formal verification
+    │   └── review-conversation.md
+    └── protocols/                    # NEW: AISP protocol specifications
+        ├── aisp5.1.aisp              # EARS requirements syntax
+        ├── flow.aisp                 # Adviser-driven workflow logic
+        ├── solid.aisp                # SOLID principles formalization
+        ├── triangulation.aisp        # Multi-witness verification
+        ├── yagni.aisp                # Lean development rules
+        └── cost-analysis.aisp        # Token budget optimization
 ```
+
+**Note:** Protocol paths in workflows use `{{AGENT_DIR}}/protocols/` which is automatically replaced with `.agent` or `.claude` during deployment.
 
 ## Claude Code Terminal Auto-Execution
 

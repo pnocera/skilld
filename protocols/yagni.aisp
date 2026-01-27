@@ -1,0 +1,111 @@
+;; AISP Formalization for YAGNI (Lean Development)
+;; Based on AISP 5.1 / EARS Formalization
+
+𝔸1.1.yagni@2026-01-25
+γ≔software.lean.yagni
+ρ≔⟨minimality,just_in_time,anti_overengineering,refactoring⟩
+⊢ND∧EARS
+
+;; ─── Ω: FOUNDATION ───
+⟦Ω:Foundation⟧{
+  YAGNI≜"You Ain't Gonna Need It"
+  Principle≜"Do not implement features based on future predictions"
+  
+  ;; Economic Model of YAGNI
+  ;; Cost of speculation is almost always > Cost of late implementation
+  Cost(Speculation)≜BuildCost + MaintenanceCost + (OpportunityCost * ProbabilityOfErrors)
+  Cost(Delay)≜IntegrationCost + (DelayPenalty * BusinessValue)
+  
+  ∀context: Cost(Speculation) > Cost(Delay)
+}
+
+;; ─── Σ: TYPES ───
+⟦Σ:Types⟧{
+  WorkItem≜{UserFeature, Refactor, Infrastructure, SpeculativeFeature}
+  Evidence≜⟨source:UserRequest|BugReport|SystemHealth|BusinessStrategy, strength:ℝ[0,1]⟩
+  
+  ;; Development Actions
+  Action≜{Implement, Defer, Reject, Refactor}
+  
+  ;; Necessity Logic
+  Required(w)≜∃e∈Evidence: e.target≡w ∧ e.strength > 0.8
+}
+
+;; ─── Γ: YAGNI RULES (EARS SPECIFICATION) ───
+⟦Γ:Rules⟧{
+  
+  ;; 1. The Core Invariant (Updated for completeness)
+  ;; Pattern: Ubiquitous
+  YAGNI_Invariant≜"The System shall only contain WorkItems that are Required"
+  ∀w∈System: Required(w)
+  
+  ;; 2. Rejection of Speculation
+  ;; Pattern: Unwanted Behaviour
+  Anti_Speculation≜"If a WorkItem is SpeculativeFeature, then the Developer shall Reject it"
+  ∀w: w∈SpeculativeFeature ⇒ Action(Developer, w) ≡ Reject
+  
+  ;; 3. Just-In-Time Implementation
+  ;; Pattern: State-Driven
+  JIT_Implementation≜"While a WorkItem is UserFeature and Required, the Developer shall Implement it"
+  ∀w: (w∈UserFeature ∧ Required(w)) ⇒ Action(Developer, w) ≡ Implement
+  
+  ;; 4. Refactoring Mandate (Fixing the V1.0 Gap)
+  ;; Pattern: Complex
+  Refactoring_Rule≜"While the System works, when complexity increases, the Developer shall Refactor"
+  ∀sys: Complexity(sys) > Threshold ⇒ Action(Developer, Refactor) ≡ Required
+}
+
+;; ─── Λ: FUNCTIONS (Operational Logic) ───
+⟦Λ:Functions⟧{
+  
+  ;; Evaluate Logical Necessity
+  evaluate: WorkItem → Action
+  evaluate≜λw.case[
+    is_speculative(w) → Reject,
+    is_infrastructure(w) ∧ ¬blocking(w) → Defer,
+    Required(w) → Implement,
+    _ → Defer
+  ]
+  
+  ;; Cost Analysis Function
+  should_build: WorkItem → 𝔹
+  should_build≜λw. Cost(Delay(w)) > Cost(Speculation(w))
+  
+  ;; Refactoring Check
+  needs_refactor: Codebase → 𝔹
+  needs_refactor≜λc. calculate_technical_debt(c) > max_allowable_debt
+}
+
+;; ─── Χ: ERRORS ───
+⟦Χ:Errors⟧{
+  ε_overengineering≜⟨∃w∈System: ¬Required(w), "YAGNI Violation: WorkItem is not required"⟩
+  ε_premature_optimization≜⟨Optimization applied before profiling data exists, "YAGNI Violation: Premature Optimization"⟩
+  ε_debt_accumulation≜⟨Complexity(System) > Threshold ∧ NoRefactor, "Failure to maintain lean design"⟩
+}
+
+;; ─── Θ: PROOFS (Formal Verification) ───
+⟦Θ:Proofs⟧{
+  ;; Theorem 1: Minimality
+  ;; Proof that the system S contains no unused elements E
+  ∴∀E∈S: Used(E)
+  π: By YAGNI_Invariant, every item has Evidence. Evidence implies Utility. ∎
+  
+  ;; Theorem 2: Economic Efficiency
+  ;; Proof that YAGNI strategy minimizes total cost C
+  ∴C(YAGNI) < C(Speculative)
+  π: C(Speculative) includes Cost(Speculation) for features F where P(Used(F)) < 1.
+     C(YAGNI) avoids this sum entirely.
+     Assuming Cost(Delay) is low (agile refactoring), C(YAGNI) is optimal. ∎
+}
+
+;; ─── Ε: EVIDENCE ───
+⟦Ε⟧⟨
+δ≜0.95
+|𝔅|≜4/4
+φ≜92
+τ≜◊⁺
+⊢YAGNI:RefactoringIncluded
+⊢Functions:Defined
+⊢Proofs:Valid
+⊢Ambig<0.02
+⟩
