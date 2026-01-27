@@ -14,6 +14,7 @@ ralph-inferno-main/
 .env.production.local
 section*
 .agent/
+.claude/
 # Build output
 skills/adviser/dist/
 dist/
@@ -60,3 +61,5 @@ temp/
 *.pid
 *.seed
 *.pid.lock
+
+.claude/

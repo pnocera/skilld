@@ -194,13 +194,15 @@ Action_From_Verdict≜
 Protocol-driven verification **complements** adviser review:
 
 ```
-Standard workflow:
-  adviser code-verification --input file.ts --mode aisp
+Standard workflow (using dynamic adviser):
+  1. Discover protocols: solid.aisp, triangulation.aisp
+  2. Compose prompt to ./tmp/adviser-prompt-verify-<uuid>.md
+  3. Run: adviser --prompt-file ./tmp/adviser-prompt... --input file.ts --mode aisp
 
 Protocol-enhanced workflow:
-  1. Run adviser (quick AI analysis)
+  1. Run dynamic adviser (quick AI analysis)
   2. IF verdict≡approve AND is_critical_path:
-     - Run protocol-driven-verification for extra rigor
+     - Run protocol-driven-verification for extra rigor (apply rules manually)
   3. IF any protocol check fails:
      - Override adviser verdict to revise/reject
 ```

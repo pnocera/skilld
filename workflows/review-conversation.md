@@ -54,9 +54,22 @@ Write the relevant conversation context to a temporary markdown file:
 
 ### Step 2: Run Adviser
 
+1. **Discover protocols** from `protocols/` based on conversation context:
+   - For design discussions: `solid.aisp`, `flow.aisp`
+   - For implementation plans: `flow.aisp`, `yagni.aisp`
+   - For code review: `solid.aisp`, `triangulation.aisp`
+
+2. **Compose prompt** to `./tmp/adviser-prompt-review-<timestamp>.md`:
+   - Include role/objective preamble
+   - Add activity context (conversation review, focus areas)
+   - Embed selected protocols in `<protocol>` tags
+   - (Follow `skills/adviser/SKILL.md` for full template)
+
+3. Run:
 ```bash
-# Run adviser in default AISP mode
-adviser design-review --input ./tmp/conversation-review-<timestamp>-<uuid8>.md
+adviser --prompt-file ./tmp/adviser-prompt-review-<timestamp>.md \
+        --input ./tmp/conversation-review-<timestamp>-<uuid8>.md \
+        --mode aisp
 ```
 
 ### Step 3: Parse Results
@@ -84,15 +97,15 @@ Summarize findings to the user:
 - **After major decision**: Verify decision quality
 - **Code review prep**: Pre-review before human review
 
-## Task Types
+## Protocol Selection Reference
 
-Choose the appropriate adviser task type based on context:
+Select protocols based on conversation context:
 
-| Context | Task Type |
-|---------|-----------|
-| Discussing architecture/design | `design-review` |
-| Reviewing implementation plan | `plan-analysis` |
-| Reviewing actual code | `code-verification` |
+| Context | Recommended Protocols |
+|---------|----------------------|
+| Discussing architecture/design | `solid.aisp`, `flow.aisp` |
+| Reviewing implementation plan | `flow.aisp`, `yagni.aisp` |
+| Reviewing actual code | `solid.aisp`, `triangulation.aisp` |
 
 ## Example
 
@@ -119,7 +132,9 @@ User: "Review our conversation so far"
    - Cache consistency approach?
    ---
 
-3. Run: adviser design-review --input ./tmp/conversation-review-1737200000-a1b2c3d4.md
+3. Compose prompt with solid.aisp and flow.aisp protocols to ./tmp/adviser-prompt-review-1737200000.md
 
-4. Report verdict and key findings to user
+4. Run: adviser --prompt-file ./tmp/adviser-prompt-review-1737200000.md --input ./tmp/conversation-review-1737200000-a1b2c3d4.md
+
+5. Report verdict and key findings to user
 ```

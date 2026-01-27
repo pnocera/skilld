@@ -19,14 +19,14 @@ Load plan, review critically, execute tasks in batches, report for review betwee
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `MAX_ITERATIONS` | 2 | Maximum code-verification loops per batch |
-| `CHECKPOINT_TYPE` | code-verification | Adviser task to run |
+| `PROTOCOLS` | solid.aisp, triangulation.aisp | Protocols for code verification |
 | `OUTPUT_MODE` | aisp | Use AISP 5.1 format for AI-to-AI communication |
 | `ON_MAX_REACHED` | stop | Halt and report to human |
 | `SUCCESS_CRITERIA` | `⊢Verdict(approve)` or no `⊘`/`◊⁻` issues | When batch is approved |
 | `CHECKSUM_SKIP` | false | Enable checksum-based skip for unchanged tasks |
 | `PROGRESS_LOG` | false | Enable persistent progress logging to docs/execution/ |
 
-**AISP Awareness**: Before interpreting adviser output, reference `.agent/skills/adviser/aisp-quick-ref.md`. Key symbols:
+**AISP Awareness**: Before interpreting adviser output, reference `skills/adviser/motifs/aisp-quick-ref.md`. Key symbols:
 - `⊢Verdict(approve|revise|reject)` — Final verdict
 - `⊘` = critical, `◊⁻` = high, `◊` = medium, `◊⁺` = low severity
 - `⟦Γ:Rules⟧` — Logic block with decision rules
@@ -99,13 +99,21 @@ DO:
 
   7. Create ./tmp directory if it doesn't exist
   8. Write batch files list to: ./tmp/batch-files-<uuid8>.md (where <uuid8> is 8 random hex chars)
-  9. Run: adviser code-verification --input ./tmp/batch-files-<uuid8>.md --mode aisp
-  10. Read manifest from stdout path (format: `[Adviser] Output manifest: <path>`)
-  11. Parse manifest JSON to get asset paths, then read .aisp file for verdict
-  12. IF adviser returns critical/high issues:
+  9. **Discover protocols** from `protocols/` for code verification:
+     - `solid.aisp` — Code quality (SRP, OCP, LSP, ISP, DIP)
+     - `triangulation.aisp` — Multi-pass verification
+  10. **Compose prompt** to `./tmp/adviser-prompt-verify-<uuid8>.md`:
+      - Include role/objective preamble
+      - Add activity context (code verification, batch files)
+      - Embed selected protocols in `<protocol>` tags
+      - (Follow `skills/adviser/SKILL.md` for full template)
+  11. Run: `adviser --prompt-file ./tmp/adviser-prompt-verify-<uuid8>.md --input ./tmp/batch-files-<uuid8>.md --mode aisp`
+  12. Read manifest from stdout path (format: `[Adviser] Output manifest: <path>`)
+  13. Parse manifest JSON to get asset paths, then read .aisp file for verdict
+  14. IF adviser returns critical/high issues:
       - Fix identified issues
       - batch_iteration++
-  13. ELSE: batch approved
+  15. ELSE: batch approved
 UNTIL (batch approved) OR (batch_iteration >= MAX_ITERATIONS)
 
 IF batch_iteration >= MAX_ITERATIONS:

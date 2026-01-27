@@ -14,11 +14,11 @@ Start by understanding the current project context, then ask questions one at a 
 
 | Setting | Value | Description |
 |---------|-------|-------------|
-| `CHECKPOINT_TYPE` | design-review | Adviser task to run |
+| `PROTOCOLS` | solid.aisp, flow.aisp | Protocols for design review |
 | `OUTPUT_MODE` | aisp | Use AISP 5.1 format for AI-to-AI communication |
 | `WHEN_TO_RUN` | once, after complete design | Single validation at end |
 
-**AISP Awareness**: Before interpreting adviser output, reference `.agent/skills/adviser/aisp-quick-ref.md`. Key symbols:
+**AISP Awareness**: Before interpreting adviser output, reference `skills/adviser/motifs/aisp-quick-ref.md`. Key symbols:
 - `⊢Verdict(approve|revise|reject)` — Final verdict
 - `⊘` = critical, `◊⁻` = high, `◊` = medium, `◊⁺` = low severity
 - `⟦Γ:Rules⟧` — Logic block with decision rules
@@ -74,13 +74,22 @@ After the complete design is drafted and user-approved:
 
 1. Create `./tmp` directory if it doesn't exist
 2. Write complete design to: `./tmp/design-complete-<uuid8>.md` (where `<uuid8>` is 8 random hex chars)
-3. Run: `adviser design-review --input ./tmp/design-complete-<uuid8>.md --mode aisp`
-4. Read manifest from stdout path to find output `.aisp` file
-5. Parse AISP output for verdict/issues
-6. IF adviser returns critical/high issues:
+3. **Discover relevant protocols** from `protocols/` for design review:
+   - `solid.aisp` — Architecture quality (SRP, OCP, DIP)
+   - `flow.aisp` — Workflow structure validation
+4. **Compose adviser prompt** to `./tmp/adviser-prompt-design-<uuid8>.md`:
+   - Include role/objective preamble
+   - Add activity context (design review, focus areas)
+   - Embed selected protocols in `<protocol>` tags
+   - Specify AISP output requirements
+   - (Follow `skills/adviser/SKILL.md` for full template)
+5. Run: `adviser --prompt-file ./tmp/adviser-prompt-design-<uuid8>.md --input ./tmp/design-complete-<uuid8>.md --mode aisp`
+6. Read manifest from stdout path to find output `.aisp` file
+7. Parse AISP output for verdict/issues
+8. IF adviser returns critical/high issues:
    - Review and address concerns
    - Note any unresolved issues in final documentation
-7. Proceed to documentation
+9. Proceed to documentation
 
 ## After the Design
 

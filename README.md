@@ -4,14 +4,15 @@
 
 # Adviser Skill for Claude Code
 
-Critical analysis and quality assurance advisor using the Claude Agent SDK.
+Protocol-driven analysis and quality assurance tool using the Claude Agent SDK.
 
 ## Features
 
-Three analysis personas for different types of code work:
-- **Design Review** (architect): Analyzes design documentation for edge cases, gaps, and concerns
-- **Plan Analysis** (strategist): Reviews implementation plans for correctness and sequencing
-- **Code Verification** (auditor): Cross-references code against design/plan for accuracy
+**Dynamic protocol-based analysis:**
+- Consuming agents discover relevant protocols from `protocols/`
+- Compose custom prompts with selected protocols
+- Execute analysis using the Claude Agent SDK
+- Output in AISP 5.1 format for AI-to-AI communication
 
 ## Self-Contained Executables
 
@@ -97,28 +98,37 @@ The script performs the following steps:
 ## Usage
 
 ```bash
-adviser <taskType> [options]
+adviser --prompt-file <path> --input <file> [options]
 ```
 
 **Parameters:**
-- `taskType`: One of `design-review`, `plan-analysis`, `code-verification`
-- `--mode, -m`: `human` (default, saves markdown files) or `workflow` (outputs JSON)
-- `--context, -c`: The text/document content to analyze
-- `--timeout, -t`: Execution timeout in milliseconds (default: 60000)
+- `--prompt-file, -p`: Path to system prompt file (composed by calling agent)
+- `--input, -i`: Path to input file containing content to analyze
+- `--mode, -m`: `aisp` (default), `human`, or `workflow` (JSON)
+- `--output, -o`: Optional explicit output file path
+- `--output-dir`: Optional output directory (default: docs/reviews/)
+- `--timeout, -t`: Execution timeout in milliseconds (default: 1800000)
 
-**Context Input:**
+**Example:**
 ```bash
-# Direct text
-adviser design-review -c "Design doc for real-time chat app"
+# Compose a prompt with protocols (agent does this dynamically)
+cat > ./tmp/prompt.md << 'EOF'
+# Design Review Prompt
+## Role & Objective
+You are an expert software architect...
 
-# From file
-adviser design-review -c @design-doc.md
+## Protocols
+<protocol>
+[content from solid.aisp]
+</protocol>
+EOF
 
-# From stdin
-cat design.md | adviser design-review -c @-
+# Run adviser
+adviser --prompt-file ./tmp/prompt.md --input design-doc.md --mode aisp
 ```
 
 **Output:**
+- AISP mode: `.aisp` file saved to `docs/reviews/` with AISP 5.1 format
 - Human mode: Markdown file saved to `docs/reviews/` with detailed analysis
 - Workflow mode: JSON-structured result to stdout
 
@@ -148,7 +158,7 @@ bun run skills/adviser/index.ts design-review -c "test"
 ```
 skilld/
 ├── skills/adviser/
-│   ├── SKILL.md              # Skill documentation
+│   ├── SKILL.md              # Skill documentation (protocol discovery guide)
 │   ├── build.ps1             # Build script for executables
 │   ├── dist/                 # Compiled executables
 │   │   ├── adviser.exe       # Windows x64
@@ -158,12 +168,15 @@ skilld/
 │   ├── output.ts             # Output formatting
 │   ├── schemas.ts            # Zod validation schemas
 │   ├── types.ts              # Type definitions
-│   └── motifs/               # Persona prompt templates
-│       ├── architect.txt
-│       ├── strategist.txt
-│       ├── auditor.txt
-│       └── aisp-spec.md
-├── workflows/                # Agent commands / workflows
+│   └── motifs/               # Reference materials
+│       ├── aisp-spec.md      # Full AISP 5.1 specification
+│       └── aisp-quick-ref.md # Quick reference for parsing
+├── protocols/                # AISP protocol specifications
+│   ├── solid.aisp            # SOLID principles
+│   ├── flow.aisp             # Workflow logic
+│   ├── yagni.aisp            # Lean development
+│   └── triangulation.aisp    # Multi-witness verification
+├── workflows/                # Agent workflows
 ```
 
 ## Deployment

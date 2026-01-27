@@ -19,11 +19,11 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 | Setting | Value | Description |
 |---------|-------|-------------|
-| `CHECKPOINT_TYPE` | plan-analysis | Adviser task to run |
+| `PROTOCOLS` | flow.aisp, yagni.aisp | Protocols for plan analysis |
 | `OUTPUT_MODE` | aisp | Use AISP 5.1 format for AI-to-AI communication |
 | `WHEN_TO_RUN` | once per phase | Single validation per major phase |
 
-**AISP Awareness**: Before interpreting adviser output, reference `.agent/skills/adviser/aisp-quick-ref.md`. Key symbols:
+**AISP Awareness**: Before interpreting adviser output, reference `skills/adviser/motifs/aisp-quick-ref.md`. Key symbols:
 - `⊢Verdict(approve|revise|reject)` — Final verdict
 - `⊘` = critical, `◊⁻` = high, `◊` = medium, `◊⁺` = low severity
 - `⟦Γ:Rules⟧` — Logic block with decision rules
@@ -132,12 +132,20 @@ Run adviser once after completing each major phase of the plan:
 
 **After completing a phase:**
 1. Save plan progress to: `docs/plans/YYYY-MM-DD-<feature-name>.md`
-2. Run: `adviser plan-analysis --input docs/plans/YYYY-MM-DD-<feature-name>.md --mode aisp`
-3. Read manifest from stdout path (format: `[Adviser] Output manifest: <path>`)
-4. Parse manifest JSON to get asset paths, then read `.aisp` file for verdict
-5. Review adviser feedback and address critical/high issues
-6. Note any unresolved concerns in plan header
-7. Continue to next phase
+2. **Discover protocols** from `protocols/` for plan analysis:
+   - `flow.aisp` — Task flow and structure validation
+   - `yagni.aisp` — Necessity and anti-speculation
+3. **Compose prompt** to `./tmp/adviser-prompt-plan-<uuid>.md`:
+   - Include role/objective preamble
+   - Add activity context (plan review, completeness check)
+   - Embed selected protocols in `<protocol>` tags
+   - (Follow `skills/adviser/SKILL.md` for full template)
+4. Run: `adviser --prompt-file ./tmp/adviser-prompt-plan-<uuid>.md --input docs/plans/YYYY-MM-DD-<feature-name>.md --mode aisp`
+5. Read manifest from stdout path (format: `[Adviser] Output manifest: <path>`)
+6. Parse manifest JSON to get asset paths, then read `.aisp` file for verdict
+7. Review adviser feedback and address critical/high issues
+8. Note any unresolved concerns in plan header
+9. Continue to next phase
 
 **Phases that trigger adviser:**
 - After defining the architecture overview
