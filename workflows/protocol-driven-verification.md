@@ -135,12 +135,48 @@ Verify that planned features are necessary:
 | Feature A | UserFeature | User request PRD-123 | ✅ Implement |
 | Feature B | Speculative | "might be useful later" | ❌ Reject |
 | Feature C | Infrastructure | Required for A | ✅ Implement |
+| Feature D | Speculative | No evidence | ❌ Reject |
 
 **Compliance Score:** 0.XX
 **Rejected Items:** N speculative features trimmed
 ```
 
-### Mode 4: Full Protocol Stack
+### Mode 4: Bayesian Calibration
+
+**Load:** `{{AGENT_DIR}}/protocols/bayesian-calibration.aisp`
+
+Apply information-theoretic calibration to ensure optimal reasoning and order-invariance:
+
+```
+1. Estimate Task Complexity (n): (Context Tokens + Semantic Depth)
+2. Calculate Optimal CoT Length (k*): 
+   k* = c_base * sqrt(n) * log2(1/ε)
+3. Execute Permutation Loop (K=20):
+   FOR i in [1..20]:
+     p_i = permute_context(input)
+     votes[i] = evaluate(p_i, protocol)
+4. Verify Martingale Property:
+   variance = Var(votes)
+   IF variance < 0.15: Status ≡ 'Calibrated
+   ELSE: Status ≡ 'Uncertain (Increase K)
+5. Refine Output:
+   Final = BayesianPosterior(votes)
+```
+
+**Report Format:**
+```markdown
+## Bayesian Calibration Report
+
+- **Task Complexity (n):** [value]
+- **Thinking Budget (k*):** [value] tokens
+- **Permutation Samples (K):** 20
+- **Martingale Variance:** 0.XX
+- **Calibration Status:** ✅ CALIBRATED / ⚠️ UNCERTAIN
+
+**Verdict:** ⊢Verdict(approve|revise)
+```
+
+### Mode 5: Full Protocol Stack
 
 For maximum rigor, apply all protocols in sequence:
 
@@ -148,7 +184,8 @@ For maximum rigor, apply all protocols in sequence:
 1. YAGNI Check → Trim speculative items
 2. SOLID Validation → Verify architecture quality
 3. Triangulation → Multi-witness confidence on key assertions
-4. Flow Verdict → Final approve/revise/reject decision
+4. Bayesian Calibration → Ensure optimal scaling and order-invariance
+5. Flow Verdict → Final approve/revise/reject decision
 ```
 
 ## The Process
@@ -160,6 +197,7 @@ Based on work type:
 - Code implementation → SOLID + Triangulation
 - Plan review → YAGNI + Flow
 - Critical path → Full Protocol Stack
+- High-stakes uncertainty → Bayesian Calibration
 
 ### Step 2: Load Required Protocols
 

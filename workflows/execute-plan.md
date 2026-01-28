@@ -25,6 +25,7 @@ Load plan, review critically, execute tasks in batches, report for review betwee
 | `SUCCESS_CRITERIA` | `⊢Verdict(approve)` or no `⊘`/`◊⁻` issues | When batch is approved |
 | `CHECKSUM_SKIP` | false | Enable checksum-based skip for unchanged tasks |
 | `PROGRESS_LOG` | false | Enable persistent progress logging to docs/execution/ |
+| `BAYESIAN_MODE` | false | Enable permutation averaging and optimal CoT scaling |
 
 **AISP Awareness**: Before interpreting adviser output, reference `skills/adviser/motifs/aisp-quick-ref.md`. Key symbols:
 - `⊢Verdict(approve|revise|reject)` — Final verdict
@@ -40,6 +41,7 @@ Load plan, review critically, execute tasks in batches, report for review betwee
 |----------|----------------------|
 | `{{AGENT_DIR}}/protocols/solid.aisp` | Validate code quality: `validate_SOLID≜{SRP,OCP,LSP,ISP,DIP}` |
 | `{{AGENT_DIR}}/protocols/triangulation.aisp` | Multi-witness verification: `Confidence ∝ |IndependentWitnesses|` |
+| `{{AGENT_DIR}}/protocols/bayesian-calibration.aisp` | Optimal scaling & variance reduction: `k* = Θ(√n log(1/ε))` |
 | `{{AGENT_DIR}}/protocols/flow.aisp` | Execute batch logic: `execute_batch≜λ(batch).{FOR task∈batch...adviser_loop}` |
 
 **Key Protocol Rules for Execution:**
@@ -60,6 +62,10 @@ execute_batch≜λ(batch).{
 ;; From triangulation.aisp - Confidence scoring
 Threshold_Valid≜0.50
 CalculateConfidence≜λ(ev_set).min(1.0, avg + max(0, (1-variance)*0.2))
+
+;; From bayesian-calibration.aisp - Optimal Scaling
+CalculateK_Star≜λ(n, ε). c * sqrt(n) * log2(1/ε)
+VerifyConsistency≜λ(results). variance(results) < 0.15 ⇒ Status ≡ 'Calibrated
 ```
 
 Override defaults by announcing before batch: "This batch: MAX_ITERATIONS=10"
@@ -105,9 +111,14 @@ DO:
   10. **Compose prompt** to `./tmp/adviser-prompt-verify-<uuid8>.md`:
       - Include role/objective preamble
       - Add activity context (code verification, batch files)
+      - **Bayesian Optimization (if BAYESIAN_MODE=true):**
+        - Calculate `k*` for task complexity `n` (using `bayesian-calibration.aisp`)
+        - Set `thinking` tokens budget to `k*`
       - Embed selected protocols in `<protocol>` tags
       - (Follow `skills/adviser/SKILL.md` for full template)
-  11. Run: `adviser --prompt-file ./tmp/adviser-prompt-verify-<uuid8>.md --input ./tmp/batch-files-<uuid8>.md --mode aisp`
+  11. **Run** (with Optional Permutation Averaging):
+      - `adviser --prompt-file ./tmp/adviser-prompt-verify-<uuid8>.md --input ./tmp/batch-files-<uuid8>.md --mode aisp`
+      - **If BAYESIAN_MODE=true and variance > 0.15:** Repeat run with permuted context order and average results.
   12. Read manifest from stdout path (format: `[Adviser] Output manifest: <path>`)
   13. Parse manifest JSON to get asset paths, then read .aisp file for verdict
   14. IF adviser returns critical/high issues:

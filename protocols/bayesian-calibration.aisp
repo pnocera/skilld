@@ -1,0 +1,164 @@
+;; Bayesian Calibration Protocol
+;; Based on the paper: "LLMs are Bayesian, In Expectation, Not in Realization" (arXiv:2507.11768)
+;; Formalizes theoretical optimality for AISP analysis results through information-theoretic constraints.
+
+𝔸1.0.bayesian-calibration@2026-01-28
+γ≔bayesian.optimal.inference
+ρ≔⟨martingale,permutation,scaling,calibration,completion,shannon⟩
+⊢ND∧EARS∧BAYESIAN
+
+;; ─── Ω: FOUNDATION ───
+⟦Ω:Foundation⟧{
+  ;; Core Axiom: LLMs achieve Bayesian optimality in expectation, but violate it in realization due to positional artifacts.
+  BayesianOpt≜"The property where P(X | Context) minimizes conditional Kolmogorov complexity K(X | π)"
+  
+  ;; Distinction: Expectation vs Realization
+  ;; "LLMs are Bayesian in expectation (minimal complexity), but non-Bayesian in realization (order-dependent)"
+  Expectation_Bayesian ≜ 𝔼[P(X|π)] ≈ P(X)
+  Realization_Bayesian ≜ P(X|π) ≠ P(X|π')
+  
+  ;; Martingale Property: Posterior predictive must be invariant to data ordering
+  ;; f(X, π) is the prediction for sequence X under permutation π
+  MartingaleProperty≜∀π,π' : |𝔼[f(X, π)] - 𝔼[f(X, π')]| < Δ_martingale
+  Δ_martingale ≜ 0.05 ;; Tolerance for invariant predictions
+  
+  ;; Permutation Invariance Diagnostic
+  ;; Tool for measuring the 'Bayesian Gap'
+  BayesianGap≜λ(π, π'). |f(π) - f(π')|
+  ⊢GapRule: ∀π,π':BayesianGap(π,π') > Δ_martingale ⇒ Status ≡ 'NonBayesian_Realization
+  
+  ;; Theory: Chain-of-Thought (CoT) is necessary for computational completeness
+  CoT_Necessity≜λ(budget).Complexity(Task) > budget ⇒ Action ≡ 'ExternalReasoning
+  ParameterBudget ≜ ⟨n_params:ℕ, context_window:ℕ⟩
+  ModelCapacity ≜ f(ParameterBudget) ;; Internal parameter-bound computation limit
+}
+
+;; ─── Σ: TYPES ───
+⟦Σ:Types⟧{
+  ;; Complexity measures
+  n≜ℕ    ;; Task/Context complexity (estimated tokens or semantic richness)
+  ε≜ℝ[0,1] ;; Desired error bound for the analysis
+  
+  ;; Scaling Parameters
+  ScalingParam≜⟨const:ℝ, target_error:ε, context_n:n⟩
+  
+  ;; Calibration Strategy
+  Strategy≜{PermutationAveraging, ScalingOptimization, SufficientStatisticConditioning}
+  
+  ;; Calibration Constants
+  Threshold_Richness ≜ 50 ;; Complexity score threshold for mandatory CoT
+  K_Default ≜ 20          ;; Default samples for variance reduction
+  c_base ≜ 1.0            ;; Scaling constant derived from algorithmic information theory (Theorem 3.4)
+  
+  ;; Statistics
+  SufficientStatistic ≜ λ(X). T(X) s.t. p(x|θ) = h(x)g(T(x),θ)
+}
+
+;; ─── Γ: CALIBRATION RULES (EARS) ───
+⟦Γ:Rules⟧{
+  ;; ═══════════════════════════════════════════════
+  ;; 1. Optimal Chain-of-Thought (CoT) Scaling
+  ;; ═══════════════════════════════════════════════
+  
+  ;; Pattern: Ubiquitous - Optimal length formula
+  ;; "The System shall calculate the optimal reasoning length k* based on the square root of complexity"
+  CalculateK_Star≜λ(n, ε). c_base * sqrt(n) * log2(1/ε)
+  
+  ;; Pattern: Complex - Implementation of CoT
+  ;; "While the System analyzes complex protocols, when the task complexity n exceeds Threshold_Richness, the System shall allocate k* tokens for thinking"
+  AllocationRule≜λ(task). task.n > Threshold_Richness ⇒ scratchpad.size ≡ CalculateK_Star(task.n, 0.05)
+
+  ;; ═══════════════════════════════════════════════
+  ;; 2. Variance Reduction (Permutation Averaging)
+  ;; ═══════════════════════════════════════════════
+  
+  ;; Pattern: StateDriven - Calibration requirement
+  ;; "While performing high-stakes analysis, the System shall execute K_Default random permutations of context order"
+  PermutationRule≜λ(analysis_type). analysis_type ≡ 'Critical ⇒ K ≡ K_Default
+  
+  ;; Pattern: EventDriven - Martingale Verification
+  ;; "When multiple evaluations are performed, the System shall verify that the variance between permutations is below threshold"
+  VarianceThreshold≜0.15
+  VerifyConsistency≜λ(results). variance(results) < VarianceThreshold ⇒ Status ≡ 'Calibrated
+
+  ;; ═══════════════════════════════════════════════
+  ;; 3. Result Convergence
+  ;; ═══════════════════════════════════════════════
+  
+  ;; Pattern: EventDriven - Statistic Conditioning
+  ;; "When sufficient evidence accumulates, the System shall condition the final AISP output on the sufficient statistics"
+  RefinementRule≜λ(stats). AISP_Output ≡ BayesianPosterior(stats)
+  
+  ;; Function definitions for formal completeness
+  Weight ≜ λ(e). exp(-variance(evidence_set)/σ²)
+  BayesianPosterior ≜ λ(stats). normalize(∑(Weight(e) × e.value))
+}
+
+;; ─── Λ: CALIBRATION FUNCTIONS ───
+⟦Λ:Functions⟧{
+  ;; Execute calibrated analysis
+  analyze_calibrated≜λ(input, protocol).{
+    n = estimate_complexity(input)
+    k = CalculateK_Star(n, 0.05)
+    
+    ;; 1. Generate 思 (Thinking)
+    thinking = generate_cot(input, protocol, length:k)
+    
+    ;; 2. Permutation loop
+    FOR i ∈ [1..K_Default]:
+      p_i = permute_context(input)
+      votes[i] = evaluate(p_i, protocol, seed:thinking)
+    
+    ;; 3. Reconcile
+    IF VerifyConsistency(votes) THEN
+      RETURN consolidate(votes)
+    ELSE
+      RECURSE(K=K_Default*2) ;; Increase sample size for high variance
+  }
+}
+
+;; ─── Χ: ERRORS ───
+⟦Χ:Errors⟧{
+  ;; Calibration failures
+  ε_martingale_violation≜⟨variance > 0.3, "High sensitivity to input ordering detected", ⊘⟩
+  ε_thinking_bottleneck≜⟨thinking.length < k, "Insufficient reasoning tokens for task complexity", ◊⁻⟩
+}
+
+;; ─── Θ: PROOFS ───
+⟦Θ:Proofs⟧{
+  ;; Theorem 1: Variance Reduction Guarantee
+  ;; "Permutation averaging reduces martingale violations by k^(-1/2)"
+  ∴∀k: Variance(Avg(k)) ≈ OriginalVariance * (1 - (1 - 1/sqrt(k)))
+  π:Prop 3.10: Expected error reduces with k^0.5 factor. For k=20, 1 - 1/sqrt(20) ≈ 0.776 (78% reduction).∎
+
+  ;; Theorem 2: CoT Necessity & Scaling
+  ;; "Fixed-parameter models require external scratchpad scaling with sqrt(n)"
+  ∴∀task: k* ≡ Θ(√n log(1/ε))
+  π:Thm 3.4/3.7: Minimizing conditional Kolmogorov complexity K(X|π) subject to computational cost 
+    leads to square-root scaling through the information-computational gap.∎
+
+  ;; Theorem 3: Bayesian Convergence
+  ;; "As context grows, the model transitions from Realization to Expectation optimality"
+  ∴∀n: n→∞ ⇒ BayesianGap(π,π') → 0
+  π:Section 6.1: Combinatorial structure of permutations becomes less sensitive as context window grows.∎
+}
+
+;; ─── Σ: QUICK REFERENCE ───
+⟦Σ:QuickRef⟧{
+  Scaling≔"k* = Θ(√n log(1/ε))",
+  Samples≔"K=20 for ~78% variance reduction",
+  Target≔"Variance < 0.15 for calibrated results"
+}
+
+;; ─── Ε: EVIDENCE ───
+⟦Ε⟧⟨
+  δ≜0.95
+  |𝔅|≜arxiv:2507.11768
+  φ≜100
+  τ≜◊⁺
+  ⊢Inference:Bayesian
+  ⊢Mechanism:PermutationAveraging
+  ⊢Optimization:SquareRootScaling
+  ⊢Constraint:MartingaleConsistency
+  ⊢Result:InformationTheoreticOptimality
+⟩

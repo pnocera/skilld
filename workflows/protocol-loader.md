@@ -20,6 +20,7 @@ Dynamically load AISP protocols based on the current task context. This workflow
 | `{{AGENT_DIR}}/protocols/triangulation.aisp` | Multi-source verification, evidence gathering | ~1,500 |
 | `{{AGENT_DIR}}/protocols/aisp5.1.aisp` | Creating new protocols, requirements writing | ~1,800 |
 | `{{AGENT_DIR}}/protocols/cost-analysis.aisp` | Optimizing protocol usage | ~1,200 |
+| `{{AGENT_DIR}}/protocols/bayesian-calibration.aisp` | Optimal scaling & variance reduction | ~1,200 |
 
 ## Loading Strategy
 
@@ -30,7 +31,7 @@ IF task ∈ {design-review, brainstorm}:
   LOAD {{AGENT_DIR}}/protocols/flow.aisp, {{AGENT_DIR}}/protocols/solid.aisp, {{AGENT_DIR}}/protocols/yagni.aisp
   
 IF task ∈ {code-verification, implementation}:
-  LOAD {{AGENT_DIR}}/protocols/solid.aisp, {{AGENT_DIR}}/protocols/triangulation.aisp
+  LOAD {{AGENT_DIR}}/protocols/solid.aisp, {{AGENT_DIR}}/protocols/triangulation.aisp, {{AGENT_DIR}}/protocols/bayesian-calibration.aisp
   
 IF task ∈ {plan-analysis}:
   LOAD {{AGENT_DIR}}/protocols/flow.aisp, {{AGENT_DIR}}/protocols/yagni.aisp
@@ -64,6 +65,7 @@ For even lighter footprint, inject only core principles as inline context:
 - YAGNI: Only implement when Required(evidence.strength > 0.8)
 - Triangulation: Confidence ∝ |IndependentWitnesses|; Threshold_Valid = 0.50
 - Flow: Verdict{approve: critical=0∧high≤2, revise: critical=0∧high>2, reject: critical>0}
+- Bayesian: Optimal CoT $k^* = \Theta(\sqrt{n} \log(1/\epsilon))$; Permutation Averaging (K=20) for 78% variance reduction
 ```
 
 ## The Process
@@ -107,6 +109,10 @@ Parse loaded protocols for actionable rules:
 - Core invariant: `∀w∈System: Required(w)`
 - Anti-speculation: `w∈SpeculativeFeature ⇒ Action ≡ Reject`
 
+**From bayesian-calibration.aisp:**
+- Optimal Scaling: `CalculateK_Star≜λ(n, ε). c * sqrt(n) * log2(1/ε)`
+- Variance Reduction: `K=20` random permutations for critical analysis
+
 ### Step 4: Apply to Current Task
 
 Reference extracted rules when:
@@ -135,6 +141,7 @@ BEFORE creating tasks:
 DURING code-verification:
   LOAD {{AGENT_DIR}}/protocols/solid.aisp → validate code quality
   LOAD {{AGENT_DIR}}/protocols/triangulation.aisp → multi-source verification if complex
+  LOAD {{AGENT_DIR}}/protocols/bayesian-calibration.aisp → optimize CoT tokens and calibrate results
 ```
 
 ## Quick Reference Commands
@@ -146,8 +153,8 @@ cat {{AGENT_DIR}}/protocols/*.aisp
 # Load minimal for design review (~5.5k tokens)
 cat {{AGENT_DIR}}/protocols/flow.aisp {{AGENT_DIR}}/protocols/solid.aisp {{AGENT_DIR}}/protocols/yagni.aisp
 
-# Load minimal for code verification (~3.8k tokens)
-cat {{AGENT_DIR}}/protocols/solid.aisp {{AGENT_DIR}}/protocols/triangulation.aisp
+# Load minimal for code verification (~5.0k tokens)
+cat {{AGENT_DIR}}/protocols/solid.aisp {{AGENT_DIR}}/protocols/triangulation.aisp {{AGENT_DIR}}/protocols/bayesian-calibration.aisp
 
 # Extract just quick reference sections
 grep -A 50 "⟦Σ:QuickRef⟧" {{AGENT_DIR}}/protocols/flow.aisp

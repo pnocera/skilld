@@ -13,6 +13,7 @@ Protocol-driven analysis and quality assurance tool using the Claude Agent SDK.
 - Compose custom prompts with selected protocols
 - Execute analysis using the Claude Agent SDK
 - Output in AISP 5.1 format for AI-to-AI communication
+- **Bayesian calibration and optimal CoT scaling** (based on arXiv:2507.11768)
 
 ## Self-Contained Executables
 

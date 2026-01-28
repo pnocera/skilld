@@ -63,3 +63,4 @@ temp/
 *.pid.lock
 
 .claude/
+docs/reviews/
