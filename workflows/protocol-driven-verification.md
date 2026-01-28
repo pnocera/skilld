@@ -1,5 +1,5 @@
 ---
-description: "Apply formal AISP protocols for rigorous verification of designs, plans, and code - use when high-fidelity validation is required"
+description: Apply formal AISP protocols for rigorous verification of designs, plans, and code - use when high-fidelity validation is required
 ---
 
 # Protocol-Driven Verification

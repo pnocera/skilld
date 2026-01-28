@@ -1,5 +1,5 @@
 ---
-description: "Use when creating or developing, before writing code or implementation plans - refines rough ideas into fully-formed designs through collaborative questioning, alternative exploration, and incremental validation."
+description: Use when creating or developing, before writing code or implementation plans - refines rough ideas into fully-formed designs through collaborative questioning, alternative exploration, and incremental validation.
 ---
 
 # Brainstorming Ideas Into Designs

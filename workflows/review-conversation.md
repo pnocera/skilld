@@ -1,5 +1,5 @@
 ---
-description: "Export the current conversation to markdown and run adviser review - use anytime to get critical feedback on conversation progress"
+description: Export the current conversation to markdown and run adviser review - use anytime to get critical feedback on conversation progress
 ---
 
 # Review Conversation

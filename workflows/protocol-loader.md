@@ -1,5 +1,5 @@
 ---
-description: "Load and reference AISP protocols dynamically based on task context - enables protocol-driven development with lazy loading optimization"
+description: Load and reference AISP protocols dynamically based on task context - enables protocol-driven development with lazy loading optimization
 ---
 
 # Protocol Loader
