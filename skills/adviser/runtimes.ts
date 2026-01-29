@@ -47,7 +47,7 @@ export async function executeClaude(
           schema: schema
         },
         abortController: controller,
-        maxTurns: 10,
+        maxTurns: 200,
         allowDangerouslySkipPermissions: true,
         permissionMode: 'bypassPermissions',
         cwd: process.cwd(),
